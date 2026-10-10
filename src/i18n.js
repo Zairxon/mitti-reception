@@ -41,6 +41,8 @@ const UZ = {
   'бухгалтерия, зарплата, отчёты': 'ҳисоб-китоб, иш ҳақи, ҳисоботлар',
   'приём клиентов и касса': 'мижозларни қабул қилиш ва касса',
   'запись для клиентов: ссылка для Instagram и бота': 'мижозлар учун ёзилиш: Instagram ва бот учун ҳавола',
+  'Период: {a} — {b}': 'Давр: {a} — {b}',
+  'Период: {a}': 'Давр: {a}',
   // календарь
   'Календарь': 'Тақвим',
   'дд.мм.гггг': 'кк.оо.йййй',
@@ -209,5 +211,10 @@ export function t(key, p) {
   return s;
 }
 export function months() { return lang === 'uz' ? MONTHS_UZ : MONTHS_RU; }
+const WDF_RU = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+const WDF_UZ = ['Душанба', 'Сешанба', 'Чоршанба', 'Пайшанба', 'Жума', 'Шанба', 'Якшанба'];
+const MONTHS_GEN_RU = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+export function weekdaysFull() { return lang === 'uz' ? WDF_UZ : WDF_RU; }
+export function monthsGen() { return lang === 'uz' ? MONTHS_UZ.map((m) => m.toLowerCase()) : MONTHS_GEN_RU; }
 export function weekdays() { return lang === 'uz' ? WD_UZ : WD_RU; }
 export const UZ_DICT = UZ;

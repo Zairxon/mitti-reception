@@ -1,5 +1,5 @@
 // Страницы приложения ресепшена и кассира. Тексты идут через t() (русский / узбекский).
-import { t, months, weekdays, getLang } from './i18n.js';
+import { t, months, weekdays, weekdaysFull, monthsGen, getLang } from './i18n.js';
 import { esc, fmt } from './util.js';
 import { fmtDate } from './datepicker.js';
 import { todayTz, isoAt, hhmmOf, isoDow, slotsOf, addDays, toMin, fromMin } from './time.js';
@@ -24,7 +24,8 @@ const fld = (label, inner, cls) => '<div class="fld' + (cls ? ' ' + cls : '') + 
 const field = (label, name, val, attrs, cls) => fld(label, '<input type="text" data-f="' + name + '" value="' + esc(val || '') + '" ' + (attrs || '') + '>', cls);
 const pill = (act, id, on, label) => '<button type="button" class="pill" data-act="' + act + '" data-id="' + esc(id) + '" aria-pressed="' + !!on + '">' + label + '</button>';
 const lcMonth = (iso) => months()[+iso.slice(5, 7) - 1];
-export function dayLabel(iso) { return weekdays()[isoDow(iso) - 1] + ', ' + +iso.slice(8, 10) + ' ' + lcMonth(iso).toLowerCase() + ' ' + iso.slice(0, 4); }
+// Полная подпись дня: «Понедельник, 12 октября 2026»
+export function dayLabel(iso) { return weekdaysFull()[isoDow(iso) - 1] + ', ' + +iso.slice(8, 10) + ' ' + monthsGen()[+iso.slice(5, 7) - 1] + ' ' + iso.slice(0, 4); }
 const doc = (S, id) => S.doctors.filter((d) => d.id === id)[0];
 const docName = (S, id) => (doc(S, id) || { name: '—' }).name;
 const srcTag = (s) => (s === 'site' ? '<small>' + t('сайт') + '</small>' : s === 'bot' ? '<small>' + t('бот') + '</small>' : '');
@@ -132,6 +133,7 @@ function report(S) {
   let h = '<section><h2>' + t('Сколько клиентов принял каждый врач') + '</h2><div class="panel">' +
     '<div class="pills">' + [['today', 'Сегодня'], ['week', '7 дней'], ['month', 'Месяц'], ['custom', 'Период']].map((x) => pill('rep-preset', x[0], r.preset === x[0], t(x[1]))).join('') + '</div>' +
     '<div class="grid">' + fld(t('С'), dateField('rep-from', r.from)) + fld(t('По'), dateField('rep-to', r.to)) + '</div></div>';
+  if (r.from && r.to) h += '<p class="small muted">' + (r.from === r.to ? t('Период: {a}', { a: esc(dayLabel(r.from)) }) : t('Период: {a} — {b}', { a: esc(dayLabel(r.from)), b: esc(dayLabel(r.to)) })) + '</p>';
   if (!rows) return h + '<p class="empty">' + t('Загрузка…') + '</p></section>';
   let tc = 0, tt = 0;
   rows.forEach((x) => { tc += +x.clients; tt += +x.total; });
@@ -166,7 +168,7 @@ function settings(S) {
     fld(t('Записывать вперёд, дней'), '<input type="text" inputmode="numeric" class="n" data-s="days_ahead" data-kind="int" value="' + st.days_ahead + '">') +
     fld(t('Начало работы'), '<input type="text" inputmode="numeric" class="n" data-s="work_start" data-kind="hm" maxlength="5" value="' + esc(String(st.work_start).slice(0, 5)) + '">') +
     fld(t('Конец работы'), '<input type="text" inputmode="numeric" class="n" data-s="work_end" data-kind="hm" maxlength="5" value="' + esc(String(st.work_end).slice(0, 5)) + '">') +
-    '</div>' + fld(t('Рабочие дни'), '<div class="pills">' + days + '</div>') + '</div>' +
+    '</div>' + fld(t('Рабочие дни'), '<div class="pills week">' + days + '</div>') + '</div>' +
     '<p class="note">' + t('Эти настройки действуют и для сайта, и для бота: клиенты увидят только свободное время в рабочие часы.') + '</p></section>';
   const doctors = '<section><h2>' + t('Врачи') + '</h2>' + S.doctors.map((d) => {
     const own = !!(d.work_start || d.work_days), e = effOf(S, d);
@@ -174,7 +176,7 @@ function settings(S) {
     return '<div class="panel docbox"><div class="rowline"><input type="text" data-doc-name="' + esc(d.id) + '" value="' + esc(d.name) + '">' + pill('doc-active', d.id, d.active, d.active ? t('Принимает') : t('Не принимает')) + '</div>' +
       '<div class="grid">' + fld(t('Начало'), '<input type="text" inputmode="numeric" class="n" id="ws-' + esc(d.id) + '" data-doc-ws="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="' + fromMin(toMin(String(S.settings.work_start).slice(0, 5))) + '" value="' + (d.work_start ? esc(String(d.work_start).slice(0, 5)) : '') + '">') +
       fld(t('Конец'), '<input type="text" inputmode="numeric" class="n" id="we-' + esc(d.id) + '" data-doc-we="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="' + fromMin(toMin(String(S.settings.work_end).slice(0, 5))) + '" value="' + (d.work_end ? esc(String(d.work_end).slice(0, 5)) : '') + '">') + '</div>' +
-      fld(t('Рабочие дни врача'), '<div class="pills">' + days + '</div>') +
+      fld(t('Рабочие дни врача'), '<div class="pills week">' + days + '</div>') +
       '<div class="row">' + (own ? '<span class="chip">' + t('свои часы') + '</span><button class="btn ghost" data-act="doc-reset" data-id="' + esc(d.id) + '">' + t('Как у клиники') + '</button>' : '<span class="small muted">' + t('Сейчас часы как у клиники.') + '</span>') + '</div></div>';
   }).join('') +
     '<div class="row"><button class="btn ghost" data-act="add-doctor">' + t('Добавить врача') + '</button></div>' +
