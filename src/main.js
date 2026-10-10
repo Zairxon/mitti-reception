@@ -51,8 +51,8 @@ const digits = (p) => String(p || '').replace(/\D/g, '');
 
 /* ---------- отрисовка ---------- */
 function applyStatic() {
-  document.title = getLang() === 'uz' ? 'Митти юракча: ресепшн' : 'Митти юракча: ресепшен';
-  $('hero-sub').textContent = T('Ресепшен и касса');
+  document.title = 'Митти юракча: ' + T('Ресепшен');
+  $('hero-sub').textContent = T('Ресепшен');
 }
 function render() {
   closeCal(); closeSelect(); applyStatic();
@@ -240,6 +240,14 @@ document.addEventListener('click', (ev) => {
     case 'rep-preset': S.rep.preset = id; loadReport(); break;
     case 'wd': { const n = +id, cur = S.settings.work_days.slice(), i = cur.indexOf(n); if (i >= 0) cur.splice(i, 1); else cur.push(n); cur.sort(); if (cur.length) saveSetting('work_days', cur); break; }
     case 'doc-active': { const d = S.doctors.filter((x) => x.id === id)[0]; api.updateDoctor(id, { active: !d.active }).then(reloadBase).then(renderView).catch(fail); break; }
+    case 'doc-wd': {
+      const d = S.doctors.filter((x) => x.id === id)[0], n = +b.dataset.n, cur = (d.work_days || S.settings.work_days).slice(), i = cur.indexOf(n);
+      if (i >= 0) cur.splice(i, 1); else cur.push(n);
+      cur.sort();
+      if (!cur.length) { toast(T('Нужен хотя бы один рабочий день')); break; }
+      api.updateDoctor(id, { work_days: cur }).then(reloadBase).then(renderView).catch(fail); break;
+    }
+    case 'doc-reset': api.updateDoctor(id, { work_start: null, work_end: null, work_days: null }).then(reloadBase).then(renderView).catch(fail); break;
     case 'add-doctor': api.addDoctor({ name: T('Врач') + ' ' + (S.doctors.length + 1), sort: S.doctors.length + 1, color: COLORS[S.doctors.length % COLORS.length] }).then(reloadBase).then(renderView).catch(fail); break;
     case 'add-svc': api.addService({ name: T('Новая услуга'), price: 0, sort: S.services.length + 1 }).then(reloadBase).then(renderView).catch(fail); break;
     case 'del-svc': api.deleteService(id).then(reloadBase).then(renderView).catch(fail); break;
@@ -287,6 +295,14 @@ document.addEventListener('change', (ev) => {
     if (key === 'slot_minutes' && !(v >= 5 && v <= 120)) { toast(T('Длительность записи от 5 до 120 минут')); renderView(); return; }
     if (key === 'days_ahead' && !(v >= 1 && v <= 90)) { toast(T('Дней вперёд: от 1 до 90')); renderView(); return; }
     saveSetting(key, v); return;
+  }
+  if (el.dataset.docWs !== undefined || el.dataset.docWe !== undefined) {
+    const id = el.dataset.docWs !== undefined ? el.dataset.docWs : el.dataset.docWe, ws = $('ws-' + id).value.trim(), we = $('we-' + id).value.trim();
+    if (!ws && !we) { api.updateDoctor(id, { work_start: null, work_end: null }).then(reloadBase).then(renderView).catch(fail); return; }
+    const a = ws || String(S.settings.work_start).slice(0, 5), b = we || String(S.settings.work_end).slice(0, 5);
+    if (!validHM(a) || !validHM(b)) { toast(T('Время в формате чч:мм')); renderView(); return; }
+    if (a >= b) { toast(T('Конец работы должен быть позже начала')); renderView(); return; }
+    api.updateDoctor(id, { work_start: a, work_end: b }).then(reloadBase).then(renderView).catch(fail); return;
   }
   if (el.dataset.docName) { const name = el.value.trim(); if (name) api.updateDoctor(el.dataset.docName, { name }).then(reloadBase).catch(fail); return; }
   if (el.dataset.svcName) { const name = el.value.trim(); if (name) api.updateService(el.dataset.svcName, { name }).then(reloadBase).catch(fail); return; }
