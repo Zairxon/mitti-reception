@@ -58,7 +58,7 @@ export function vTabs(S) {
 }
 
 /* ---------- очередь ---------- */
-const effOf = (S, d) => ({ a: toMin(String(d.work_start || S.settings.work_start).slice(0, 5)), b: toMin(String(d.work_end || S.settings.work_end).slice(0, 5)), days: d.work_days || S.settings.work_days });
+const effOf = (S, d) => ({ bs: d.break_start ? toMin(String(d.break_start).slice(0, 5)) : null, be: d.break_end ? toMin(String(d.break_end).slice(0, 5)) : null, a: toMin(String(d.work_start || S.settings.work_start).slice(0, 5)), b: toMin(String(d.work_end || S.settings.work_end).slice(0, 5)), days: d.work_days || S.settings.work_days });
 function queue(S) {
   const st = S.settings, docs = S.doctors.filter((d) => d.active), day = S.day, slot = st.slot_minutes, now = Date.now(), dow = isoDow(day);
   if (!docs.length) return '<p class="empty">' + t('Нет активных врачей. Добавьте их в «Настройки».') + '</p>';
@@ -75,6 +75,7 @@ function queue(S) {
       const style = ' style="--c:' + esc(c.d.color) + '"';
       if (!hit) {
         if (!c.works || mn < c.e.a || mn + slot > c.e.b) { body += '<span class="slot off"' + style + '></span>'; return; }
+        if (c.e.bs !== null && mn < c.e.be && mn + slot > c.e.bs) { body += '<span class="slot off lunch"' + style + '><small>' + t('обед') + '</small></span>'; return; }
         const past = eMs <= now;
         if (!past) { c.free++; if (!c.next) c.next = tm; }
         body += '<button class="slot free' + (past ? ' past' : '') + '"' + style + ' data-act="slot" data-doc="' + esc(c.d.id) + '" data-t="' + tm + '" aria-label="' + esc(c.d.name + ' ' + tm) + '">+</button>';
@@ -87,7 +88,7 @@ function queue(S) {
       }
     });
   });
-  const sums = cols.map((c) => '<span><i style="--c:' + esc(c.d.color) + '"></i><b>' + esc(c.d.name) + '</b> · ' + (c.works ? t('свободно: {n}', { n: c.free }) + (c.next ? ' · ' + t('ближайшее {t}', { t: c.next }) : '') + ' · ' + fromMin(c.e.a) + '–' + fromMin(c.e.b) : t('выходной')) + '</span>').join('');
+  const sums = cols.map((c) => '<span><i style="--c:' + esc(c.d.color) + '"></i><b>' + esc(c.d.name) + '</b> · ' + (c.works ? t('свободно: {n}', { n: c.free }) + (c.next ? ' · ' + t('ближайшее {t}', { t: c.next }) : '') + ' · ' + fromMin(c.e.a) + '–' + fromMin(c.e.b) + (c.e.bs !== null ? ' · ' + t('обед') + ' ' + fromMin(c.e.bs) + '–' + fromMin(c.e.be) : '') : t('выходной')) + '</span>').join('');
   return (cols.some((c) => c.works) ? '' : '<p class="alert">' + t('Выходной день по настройкам. Записаться можно только вручную.') + '</p>') +
     '<div class="qsum">' + sums + '</div>' +
     '<div class="qlegend"><span class="lg st-booked">' + t('Записан') + '</span><span class="lg st-came">' + t('Пришёл') + '</span><span class="lg st-done">' + t('Оплачено') + '</span><span class="lg st-blocked">' + t('Закрыто') + '</span><span class="lg lg-off">' + t('не работает') + '</span></div>' +
@@ -161,7 +162,7 @@ function settings(S) {
     fld(t('Тема'), '<div class="seg three">' + [['auto', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']].map((x) => '<button type="button" data-act="theme-set" data-id="' + x[0] + '" aria-pressed="' + (S.theme === x[0]) + '">' + t(x[1]) + '</button>').join('') + '</div>') +
     '</div></section>';
   const account = '<section><h2>' + t('Аккаунт') + '</h2><div class="panel"><p>' + t('Вы вошли как {e}.', { e: '<b>' + esc(S.user.email || '') + '</b>' }) + ' ' + (own ? t('Роль: владелец.') : t('Роль: ресепшен.')) + '</p><div class="row"><button class="btn ghost" data-act="logout">' + t('Выйти') + '</button></div></div></section>';
-  if (!own) return look + appsBlock(S) + account + '<p class="note">' + t('Остальные настройки доступны только владельцу.') + '</p>';
+  if (!own) return appsBlock(S) + account + look + '<p class="note">' + t('Остальные настройки доступны только владельцу.') + '</p>';
   const days = [1, 2, 3, 4, 5, 6, 7].map((n) => pill('wd', n, st.work_days.indexOf(n) >= 0, weekdays()[n - 1])).join('');
   const clinic = '<section><h2>' + t('Приём') + '</h2><div class="panel"><div class="grid">' +
     fld(t('Длительность записи, минут'), '<input type="text" inputmode="numeric" class="n" data-s="slot_minutes" data-kind="int" value="' + st.slot_minutes + '">') +
@@ -176,11 +177,14 @@ function settings(S) {
     return '<div class="panel docbox"><div class="rowline"><input type="text" data-doc-name="' + esc(d.id) + '" value="' + esc(d.name) + '">' + pill('doc-active', d.id, d.active, d.active ? t('Принимает') : t('Не принимает')) + '</div>' +
       '<div class="grid">' + fld(t('Начало'), '<input type="text" inputmode="numeric" class="n" id="ws-' + esc(d.id) + '" data-doc-ws="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="' + fromMin(toMin(String(S.settings.work_start).slice(0, 5))) + '" value="' + (d.work_start ? esc(String(d.work_start).slice(0, 5)) : '') + '">') +
       fld(t('Конец'), '<input type="text" inputmode="numeric" class="n" id="we-' + esc(d.id) + '" data-doc-we="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="' + fromMin(toMin(String(S.settings.work_end).slice(0, 5))) + '" value="' + (d.work_end ? esc(String(d.work_end).slice(0, 5)) : '') + '">') + '</div>' +
+      '<div class="grid">' + fld(t('Обед: начало'), '<input type="text" inputmode="numeric" class="n" id="bs-' + esc(d.id) + '" data-doc-bs="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="--:--" value="' + (d.break_start ? esc(String(d.break_start).slice(0, 5)) : '') + '">') +
+      fld(t('Обед: конец'), '<input type="text" inputmode="numeric" class="n" id="be-' + esc(d.id) + '" data-doc-be="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="--:--" value="' + (d.break_end ? esc(String(d.break_end).slice(0, 5)) : '') + '">') + '</div>' +
       fld(t('Рабочие дни врача'), '<div class="pills week">' + days + '</div>') +
-      '<div class="row">' + (own ? '<span class="chip">' + t('свои часы') + '</span><button class="btn ghost" data-act="doc-reset" data-id="' + esc(d.id) + '">' + t('Как у клиники') + '</button>' : '<span class="small muted">' + t('Сейчас часы как у клиники.') + '</span>') + '</div></div>';
+      '<div class="row"><button class="btn ghost danger" data-act="doc-del" data-id="' + esc(d.id) + '" data-name="' + esc(d.name) + '">' + t('Удалить врача') + '</button>' + (own ? '<span class="chip">' + t('свои часы') + '</span><button class="btn ghost" data-act="doc-reset" data-id="' + esc(d.id) + '">' + t('Как у клиники') + '</button>' : '<span class="small muted">' + t('Сейчас часы как у клиники.') + '</span>') + '</div></div>';
   }).join('') +
     '<div class="row"><button class="btn ghost" data-act="add-doctor">' + t('Добавить врача') + '</button></div>' +
-    '<p class="note">' + t('Время работы врача: пустые поля значат часы клиники. Вне часов врача клетки закрыты, и сайт с ботом тоже не покажут это время.') + '</p></section>';
+    '<p class="note">' + t('Время работы врача: пустые поля значат часы клиники. Вне часов врача клетки закрыты, и сайт с ботом тоже не покажут это время.') + '</p>' +
+    '<p class="note">' + t('«Не принимает» временно скрывает врача из расписания, сайта и бота (отпуск, болезнь): записи сохраняются. Обед закрывает это время для записи. Кнопка «Удалить врача» убирает врача совсем.') + '</p></section>';
   const services = '<section><h2>' + t('Услуги и цены') + '</h2><div class="panel">' + (S.services.length ? S.services.map((s) =>
     '<div class="rowline"><input type="text" data-svc-name="' + esc(s.id) + '" value="' + esc(s.name) + '"><input type="text" inputmode="numeric" class="n" data-svc-price="' + esc(s.id) + '" data-kind="money" value="' + (s.price ? fmt(s.price) : '') + '" placeholder="0"><button class="btn del" data-act="del-svc" data-id="' + esc(s.id) + '" aria-label="' + esc(t('Удалить')) + '">×</button></div>').join('') : '<p class="empty">' + t('Услуг пока нет. Добавьте виды УЗИ и цены, чтобы кассир выбирал их в один клик.') + '</p>') +
     '<div class="row"><button class="btn ghost" data-act="add-svc">' + t('Добавить услугу') + '</button></div></div></section>';
@@ -189,7 +193,7 @@ function settings(S) {
     fld(t('Почта нового сотрудника'), '<input id="staff-email" type="email" inputmode="email" data-f="newStaff" value="' + esc(S.newStaff || '') + '">') +
     '<div class="row"><button class="btn" data-act="add-staff">' + t('Дать доступ ресепшену') + '</button></div></div>' +
     '<p class="note">' + t('Сотрудник сначала сам создаёт аккаунт в этом приложении, потом вы добавляете его почту.') + '</p></section>';
-  return look + clinic + doctors + services + staff + appsBlock(S) + account;
+  return clinic + doctors + services + staff + appsBlock(S) + account + look;
 }
 
 /* ---------- лист (окно снизу) ---------- */
@@ -241,8 +245,17 @@ export function vSheet(S) {
 }
 function hhmmDate(iso) { return new Date(Date.parse(iso) + 5 * 3600 * 1000).toISOString().slice(0, 10); }
 
+// Записи, сделанные клиентами на сайте и в боте (ближайшие), независимо от выбранного дня
+function onlineList(S) {
+  const list = S.online || [];
+  return '<section><h2>' + t('Онлайн-записи (сайт и бот)') + '</h2>' + (list.length ? '<ul class="list">' + list.slice(0, 30).map((a) => {
+    const day = new Date(Date.parse(a.starts_at) + 5 * 3600e3).toISOString().slice(0, 10);
+    return '<li><div class="li-main"><b>' + esc(a.client_name || '—') + '</b><span class="small muted">' + esc(dayLabel(day)) + ' · ' + hhmmOf(a.starts_at) + ' · ' + esc(docName(S, a.doctor_id)) + ' · ' + t(a.source === 'bot' ? 'бот' : 'сайт') + '</span></div><button class="btn ghost" data-act="goto-day" data-day="' + day + '">' + t('Открыть день') + '</button></li>';
+  }).join('') + '</ul>' : '<p class="empty">' + t('Нет онлайн-записей.') + '</p>') + '</section>';
+}
+
 export function vView(S) {
   const tab = S.tab;
-  return tab === 'queue' ? '<section><h2>' + t('Очередь на приём') + '</h2>' + queue(S) + '</section>' : tab === 'clients' ? clients(S) : tab === 'cash' ? cash(S) : tab === 'report' ? report(S) : settings(S);
+  return tab === 'queue' ? '<section><h2>' + t('Очередь на приём') + '</h2>' + queue(S) + '</section>' + onlineList(S) : tab === 'clients' ? clients(S) : tab === 'cash' ? cash(S) : tab === 'report' ? report(S) : settings(S);
 }
 export { addDays };

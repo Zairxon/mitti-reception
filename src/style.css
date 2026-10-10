@@ -432,3 +432,13 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 .pills.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;flex-wrap:nowrap}
 .pills.week .pill{padding:4px 0;min-width:0;text-align:center;justify-content:center;font-size:12px}
 @media (max-width:600px){.pills.week{gap:3px}.pills.week .pill{font-size:11px;min-height:30px}}
+
+/* расписание: клетки врачей чуть разведены и опущены от заголовка */
+.qgrid{gap:7px}
+.qh{margin-bottom:6px;padding:8px 6px}
+.slot{min-height:40px}
+.slot.off{min-height:40px}
+.slot.off.lunch{display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(135deg,transparent,transparent 4px,var(--line) 4px,var(--line) 5px);opacity:.8}
+.slot.off.lunch small{font-size:9.5px;color:var(--muted)}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+@media (max-width:600px){.qgrid{gap:6px}.slot{min-height:38px}.slot.off{min-height:38px}.qh{margin-bottom:5px}}

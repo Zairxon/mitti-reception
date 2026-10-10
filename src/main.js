@@ -27,7 +27,7 @@ const COLORS = ['#bd5a17', '#2f7d8c', '#7a5bb5', '#3f8a4f', '#c0392b'];
 const S = {
   ready: false, user: null, role: null, auth: { email: '', pass: '', busy: false },
   settings: null, doctors: [], services: [], clients: [], staff: [], day: todayTz(), appts: [],
-  tab: 'queue', sheet: null, form: {}, cq: '', hist: [], newStaff: '', theme: 'auto',
+  tab: 'queue', online: [], sheet: null, form: {}, cq: '', hist: [], newStaff: '', theme: 'auto',
   rep: { preset: 'today', from: todayTz(), to: todayTz(), rows: null },
 };
 try { const t0 = localStorage.getItem('mitti-tab'); if (TABS.some((x) => x[0] === t0)) S.tab = t0; } catch (e) { /* без запоминания */ }
@@ -51,7 +51,7 @@ const digits = (p) => String(p || '').replace(/\D/g, '');
 
 /* ---------- отрисовка ---------- */
 function applyStatic() {
-  document.title = 'Митти юракча: ' + T('Ресепшен');
+  document.title = '«Митти юракча»: ' + T('Ресепшен');
   $('hero-sub').textContent = T('Ресепшен');
 }
 function render() {
@@ -68,7 +68,7 @@ function renderSheet() { $('sheet').innerHTML = vSheet(S); }
 function closeSheet() { S.sheet = null; S.form = {}; renderSheet(); }
 
 /* ---------- загрузка данных ---------- */
-async function loadDay() { S.appts = await api.loadDay(S.day); }
+async function loadDay() { S.appts = await api.loadDay(S.day); try { S.online = await api.loadOnline(); } catch (e) { /* список онлайн-записей необязателен */ } }
 async function refreshDay() {
   if (!S.role) return;
   try {
@@ -248,6 +248,8 @@ document.addEventListener('click', (ev) => {
       api.updateDoctor(id, { work_days: cur }).then(reloadBase).then(renderView).catch(fail); break;
     }
     case 'doc-reset': api.updateDoctor(id, { work_start: null, work_end: null, work_days: null }).then(reloadBase).then(renderView).catch(fail); break;
+    case 'goto-day': S.day = b.dataset.day; S.tab = 'queue'; loadDay().then(render).catch(fail); window.scrollTo(0, 0); break;
+    case 'doc-del': askConfirm(T('Удалить врача «{n}»? Это нельзя отменить.', { n: b.dataset.name }), T('Удалить врача'), T('Назад')).then((ok) => { if (ok) api.deleteDoctor(id).then(reloadBase).then(() => { renderView(); toast(T('Врач удалён')); }).catch(fail); }); break;
     case 'add-doctor': api.addDoctor({ name: T('Врач') + ' ' + (S.doctors.length + 1), sort: S.doctors.length + 1, color: COLORS[S.doctors.length % COLORS.length] }).then(reloadBase).then(renderView).catch(fail); break;
     case 'add-svc': api.addService({ name: T('Новая услуга'), price: 0, sort: S.services.length + 1 }).then(reloadBase).then(renderView).catch(fail); break;
     case 'del-svc': api.deleteService(id).then(reloadBase).then(renderView).catch(fail); break;
@@ -303,6 +305,14 @@ document.addEventListener('change', (ev) => {
     if (!validHM(a) || !validHM(b)) { toast(T('Время в формате чч:мм')); renderView(); return; }
     if (a >= b) { toast(T('Конец работы должен быть позже начала')); renderView(); return; }
     api.updateDoctor(id, { work_start: a, work_end: b }).then(reloadBase).then(renderView).catch(fail); return;
+  }
+  if (el.dataset.docBs !== undefined || el.dataset.docBe !== undefined) {
+    const id = el.dataset.docBs !== undefined ? el.dataset.docBs : el.dataset.docBe, bs = $('bs-' + id).value.trim(), be = $('be-' + id).value.trim();
+    if (!bs && !be) { api.updateDoctor(id, { break_start: null, break_end: null }).then(reloadBase).then(renderView).catch(fail); return; }
+    if (!bs || !be) { if (bs && be === '') return; toast(T('Укажите начало и конец обеда')); return; }
+    if (!validHM(bs) || !validHM(be)) { toast(T('Время в формате чч:мм')); renderView(); return; }
+    if (bs >= be) { toast(T('Конец обеда должен быть позже начала')); renderView(); return; }
+    api.updateDoctor(id, { break_start: bs, break_end: be }).then(reloadBase).then(renderView).catch(fail); return;
   }
   if (el.dataset.docName) { const name = el.value.trim(); if (name) api.updateDoctor(el.dataset.docName, { name }).then(reloadBase).catch(fail); return; }
   if (el.dataset.svcName) { const name = el.value.trim(); if (name) api.updateService(el.dataset.svcName, { name }).then(reloadBase).catch(fail); return; }

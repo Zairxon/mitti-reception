@@ -13,6 +13,7 @@ function fail(error) {
   if (/Email not confirmed/i.test(msg)) throw new Error(t('Почта не подтверждена: откройте письмо от сервиса и перейдите по ссылке.'));
   if (/already registered|already been registered/i.test(msg)) throw new Error(t('Такая почта уже зарегистрирована. Нажмите «Войти».'));
   if (/Password should be/i.test(msg)) throw new Error(t('Пароль слишком простой: нужно не меньше 8 символов.'));
+  if (code === '23503' || /foreign key|violates foreign/i.test(msg)) throw new Error(t('У врача есть записи. Скройте его кнопкой «Не принимает».'));
   if (/user_not_found/.test(msg)) throw new Error(t('Пользователь с такой почтой не найден: пусть сначала создаст аккаунт.'));
   if (/rate limit/i.test(msg)) throw new Error(t('Слишком много попыток. Подождите немного.'));
   if (/fetch|network|Failed/i.test(msg)) throw new Error(t('Нет связи с сервером.'));
@@ -60,6 +61,10 @@ export async function doctorReport(from, to) { return ok(await sb.rpc('doctor_re
 /* настройки (только владелец) */
 export async function saveSettings(patch) { return ok(await sb.from('clinic_settings').update(patch).eq('id', 1).select().single()); }
 export async function addDoctor(row) { return ok(await sb.from('doctors').insert(row).select().single()); }
+export async function deleteDoctor(id) { ok(await sb.from('doctors').delete().eq('id', id)); }
+export async function loadOnline() {
+  return ok(await sb.from('appointments').select('*').in('source', ['site', 'bot']).eq('status', 'booked').gte('starts_at', new Date().toISOString()).order('starts_at').limit(60));
+}
 export async function updateDoctor(id, patch) { return ok(await sb.from('doctors').update(patch).eq('id', id).select().single()); }
 export async function addService(row) { return ok(await sb.from('services').insert(row).select().single()); }
 export async function updateService(id, patch) { return ok(await sb.from('services').update(patch).eq('id', id).select().single()); }
