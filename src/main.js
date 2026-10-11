@@ -16,6 +16,7 @@ import heroUrl from './assets/hero.jpg';
 import { registerSW } from 'virtual:pwa-register';
 import * as api from './api.js';
 import { t as T, getLang, setLang, brand } from './i18n.js';
+import { mountFooter } from './footer.js';
 import { parseDate, maskDate, openCal, closeCal } from './datepicker.js';
 import { openSelect, closeSelect, askConfirm } from './ui.js';
 import { vLogin, vNoAccess, vNav, vTabs, vView, vSheet, clientList, TABS } from './views.js';
@@ -63,7 +64,7 @@ const digits = (p) => String(p || '').replace(/\D/g, '');
 /* ---------- отрисовка ---------- */
 function applyStatic() {
   document.title = brand() + ': ' + T('Ресепшен'); document.querySelector('.hero-title').textContent = brand();
-  $('hero-sub').textContent = T('Ресепшен'); setChrome();
+  $('hero-sub').textContent = T('Ресепшен'); setChrome(); mountFooter(T('Ресепшен'));
 }
 function render() {
   closeCal(); closeSelect(); applyStatic();
