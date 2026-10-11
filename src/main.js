@@ -15,7 +15,7 @@ import heroUrl from './assets/hero.jpg';
 
 import { registerSW } from 'virtual:pwa-register';
 import * as api from './api.js';
-import { t as T, getLang, setLang } from './i18n.js';
+import { t as T, getLang, setLang, brand } from './i18n.js';
 import { parseDate, maskDate, openCal, closeCal } from './datepicker.js';
 import { openSelect, closeSelect, askConfirm } from './ui.js';
 import { vLogin, vNoAccess, vNav, vTabs, vView, vSheet, clientList, TABS } from './views.js';
@@ -43,6 +43,17 @@ function applyTheme(x) {
 }
 applyTheme(getTheme());
 $('hero').src = heroUrl;
+var SUN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+var MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+function effDark() { var th = getTheme(); return th === 'dark' || (th === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+function setChrome() {
+  var l = getLang(), lb = document.getElementById('langbtn'), tb = document.getElementById('themebtn'); if (!lb || !tb) return;
+  lb.textContent = l === 'ru' ? 'РУ' : l === 'uz' ? 'ЎЗ' : 'UZ';
+  document.querySelectorAll('#langmenu button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.id === l)); });
+  tb.innerHTML = effDark() ? SUN : MOON; tb.setAttribute('aria-label', T('Тема'));
+}
+document.addEventListener('click', function (ev) { var m = document.getElementById('langmenu'); if (m && !m.hidden && !ev.target.closest('#langmenu') && !ev.target.closest('#langbtn')) m.hidden = true; });
+
 
 /* ---------- мелочи ---------- */
 function toast(msg) { const el = $('toast'); el.textContent = msg; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 3500); }
@@ -51,8 +62,8 @@ const digits = (p) => String(p || '').replace(/\D/g, '');
 
 /* ---------- отрисовка ---------- */
 function applyStatic() {
-  document.title = '«Митти юракча»: ' + T('Ресепшен');
-  $('hero-sub').textContent = T('Ресепшен');
+  document.title = brand() + ': ' + T('Ресепшен'); document.querySelector('.hero-title').textContent = brand();
+  $('hero-sub').textContent = T('Ресепшен'); setChrome();
 }
 function render() {
   closeCal(); closeSelect(); applyStatic();
@@ -257,7 +268,9 @@ document.addEventListener('click', (ev) => {
     case 'del-svc': api.deleteService(id).then(reloadBase).then(renderView).catch(fail); break;
     case 'add-staff': { const e = (S.newStaff || '').trim(); if (!e) { toast(T('Введите почту')); break; } api.addStaff(e).then(() => { S.newStaff = ''; return loadStaff(); }).then(renderView).then(() => toast(T('Доступ открыт'))).catch(fail); break; }
     case 'del-staff': askConfirm(T('Закрыть доступ этому сотруднику?'), T('Закрыть доступ'), T('Назад')).then((ok) => { if (ok) api.removeStaff(id).then(loadStaff).then(renderView).catch(fail); }); break;
-    case 'lang-set': setLang(id); render(); break;
+    case 'lang-set': setLang(id); $('langmenu').hidden = true; render(); break;
+    case 'lang-menu': $('langmenu').hidden = !$('langmenu').hidden; break;
+    case 'theme-flip': { const nx = effDark() ? 'light' : 'dark'; try { localStorage.setItem('uzi-theme', nx); } catch (e) { /* не страшно */ } applyTheme(nx); render(); break; }
     case 'theme-set': try { localStorage.setItem('uzi-theme', id); } catch (e) { /* не страшно */ } applyTheme(id); render(); break;
     default: break;
   }

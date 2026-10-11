@@ -156,7 +156,7 @@ function appsBlock(S) {
 /* ---------- настройки ---------- */
 function settings(S) {
   const st = S.settings, own = S.role === 'owner';
-  const look = '<section><h2>' + t('Язык и тема') + '</h2><div class="panel">' +
+  const look = ''; const _lookOld = '<section><h2>' + t('Язык и тема') + '</h2><div class="panel">' +
     fld(t('Язык'), '<div class="seg"><button type="button" data-act="lang-set" data-id="ru" aria-pressed="' + (getLang() === 'ru') + '">Русский</button><button type="button" data-act="lang-set" data-id="uz" aria-pressed="' + (getLang() === 'uz') + '">Ўзбекча</button></div>') +
     fld(t('Тема'), '<div class="seg three">' + [['auto', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']].map((x) => '<button type="button" data-act="theme-set" data-id="' + x[0] + '" aria-pressed="' + (S.theme === x[0]) + '">' + t(x[1]) + '</button>').join('') + '</div>') +
     '</div></section>';
@@ -179,18 +179,18 @@ function settings(S) {
       '<div class="grid">' + fld(t('Обед: начало'), '<input type="text" inputmode="numeric" class="n" id="bs-' + esc(d.id) + '" data-doc-bs="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="--:--" value="' + (d.break_start ? esc(String(d.break_start).slice(0, 5)) : '') + '">') +
       fld(t('Обед: конец'), '<input type="text" inputmode="numeric" class="n" id="be-' + esc(d.id) + '" data-doc-be="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="--:--" value="' + (d.break_end ? esc(String(d.break_end).slice(0, 5)) : '') + '">') + '</div>' +
       fld(t('Рабочие дни врача'), '<div class="pills week">' + days + '</div>') +
-      '<div class="row"><button class="btn ghost danger small" data-act="doc-del" data-id="' + esc(d.id) + '" data-name="' + esc(d.name) + '">' + t('Удалить врача') + '</button>' + (own ? '<span class="chip">' + t('свои часы') + '</span><button class="btn ghost" data-act="doc-reset" data-id="' + esc(d.id) + '">' + t('Как у клиники') + '</button>' : '<span class="small muted">' + t('Сейчас часы как у клиники.') + '</span>') + '</div></div>';
+      '<div class="row"><button class="btn ghost danger small" data-act="doc-del" data-id="' + esc(d.id) + '" data-name="' + esc(d.name) + '">' + t('Удалить врача') + '</button>' + (own ? '<span class="chip">' + t('свои часы') + '</span><button class="btn ghost small" data-act="doc-reset" data-id="' + esc(d.id) + '">' + t('Как у клиники') + '</button>' : '<span class="small muted">' + t('Сейчас часы как у клиники.') + '</span>') + '</div></div>';
   }).join('') +
-    '<div class="row"><button class="btn ghost" data-act="add-doctor">' + t('Добавить врача') + '</button></div>' +
+    '<div class="row gaptop"><button class="btn ghost" data-act="add-doctor">' + t('Добавить врача') + '</button></div>' +
     '<p class="note">' + t('Время работы врача: пустые поля значат часы клиники. Вне часов врача клетки закрыты, и сайт с ботом тоже не покажут это время.') + '</p>' +
     '<p class="note">' + t('«Не принимает» временно скрывает врача из расписания, сайта и бота (отпуск, болезнь): записи сохраняются. Обед закрывает это время для записи. Кнопка «Удалить врача» убирает врача совсем.') + '</p></section>';
   const services = '<section><h2>' + t('Услуги и цены') + '</h2><div class="panel">' + (S.services.length ? S.services.map((s) =>
     '<div class="rowline"><input type="text" data-svc-name="' + esc(s.id) + '" value="' + esc(s.name) + '"><input type="text" inputmode="numeric" class="n" data-svc-price="' + esc(s.id) + '" data-kind="money" value="' + (s.price ? fmt(s.price) : '') + '" placeholder="0"><button class="btn del" data-act="del-svc" data-id="' + esc(s.id) + '" aria-label="' + esc(t('Удалить')) + '">×</button></div>').join('') : '<p class="empty">' + t('Услуг пока нет. Добавьте виды УЗИ и цены, чтобы кассир выбирал их в один клик.') + '</p>') +
-    '<div class="row"><button class="btn ghost" data-act="add-svc">' + t('Добавить услугу') + '</button></div></div></section>';
+    '<div class="row gaptop"><button class="btn ghost" data-act="add-svc">' + t('Добавить услугу') + '</button></div></div></section>';
   const staff = '<section><h2>' + t('Сотрудники') + '</h2><div class="panel">' + (S.staff || []).map((u) =>
     '<div class="rowline"><span class="grow">' + esc(u.email) + ' <span class="chip">' + (u.role === 'owner' ? t('владелец') : t('ресепшен')) + '</span></span>' + (u.user_id !== S.user.id ? '<button class="btn del" data-act="del-staff" data-id="' + esc(u.user_id) + '" aria-label="' + esc(t('Удалить')) + '">×</button>' : '') + '</div>').join('') +
     fld(t('Почта нового сотрудника'), '<input id="staff-email" type="email" inputmode="email" data-f="newStaff" value="' + esc(S.newStaff || '') + '">') +
-    '<div class="row"><button class="btn" data-act="add-staff">' + t('Дать доступ ресепшену') + '</button></div></div>' +
+    '<div class="row gaptop"><button class="btn" data-act="add-staff">' + t('Дать доступ ресепшену') + '</button></div></div>' +
     '<p class="note">' + t('Сотрудник сначала сам создаёт аккаунт в этом приложении, потом вы добавляете его почту.') + '</p></section>';
   return clinic + doctors + services + staff + appsBlock(S) + account + look;
 }
