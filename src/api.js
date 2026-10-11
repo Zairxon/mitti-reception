@@ -36,12 +36,13 @@ export async function loadRole() {
 }
 
 export async function loadBase() {
-  const [st, docs, svc] = await Promise.all([
+  const [st, docs, svc, bsv] = await Promise.all([
     sb.from('clinic_settings').select('*').eq('id', 1).single(),
     sb.from('doctors').select('*').order('sort').order('name'),
     sb.from('services').select('*').order('sort').order('name'),
+    sb.from('booking_services').select('id,name_ru,name_uz,price').order('sort'),
   ]);
-  return { settings: ok(st), doctors: ok(docs), services: ok(svc) };
+  return { settings: ok(st), doctors: ok(docs), services: ok(svc), bsvc: bsv.error ? [] : bsv.data };
 }
 
 export async function loadDay(date) {

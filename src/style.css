@@ -496,3 +496,11 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 #appfoot .fup{font:inherit;font-size:11.5px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--accent);cursor:pointer}
 #appfoot .fup.new{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;animation:fupulse 2s ease-in-out infinite}
 @keyframes fupulse{0%,100%{box-shadow:0 0 0 0 rgba(255,140,100,.55)}50%{box-shadow:0 0 0 8px rgba(255,140,100,0)}}
+
+/* ===== предоплата в очереди: чем бронь отличается от обычной ===== */
+.slot.pp-paid{box-shadow:inset 4px 0 0 var(--good)}
+.slot.pp-paid small{color:var(--good);font-weight:600}
+.slot.pp-wait{border-style:dashed;border-color:var(--warn)}
+.slot.pp-wait small{color:var(--warn);font-weight:600}
+.lg.pp-paid{border-color:var(--good);color:var(--good);box-shadow:inset 3px 0 0 var(--good)}
+.lg.pp-wait{border-style:dashed;border-color:var(--warn);color:var(--warn)}

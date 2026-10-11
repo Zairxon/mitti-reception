@@ -81,8 +81,9 @@ function queue(S) {
         body += '<button class="slot free' + (past ? ' past' : '') + '"' + style + ' data-act="slot" data-doc="' + esc(c.d.id) + '" data-t="' + tm + '" aria-label="' + esc(c.d.name + ' ' + tm) + '">+</button>';
       } else if (hit.s >= sMs && hit.s < eMs) {
         const a = hit.a, label = a.status === 'blocked' ? (a.note || t('Закрыто')) : (a.client_name || '—');
-        body += '<button class="slot st-' + a.status + '"' + style + ' data-act="appt" data-id="' + esc(a.id) + '"><b>' + esc(label) + '</b>' +
-          '<small>' + (a.status === 'done' ? '✓ ' + fmt(a.amount) : a.status === 'came' ? '● ' + t('ждёт') : a.status === 'blocked' ? '' : srcTag(a.source)) + '</small></button>';
+        const pp = ppTag(a);
+        body += '<button class="slot st-' + a.status + (pp ? ' ' + pp[0] : '') + '"' + style + ' data-act="appt" data-id="' + esc(a.id) + '"><b>' + esc(label) + '</b>' +
+          '<small>' + (a.status === 'done' ? '✓ ' + fmt(a.amount) : a.status === 'came' ? '● ' + t('ждёт') : a.status === 'blocked' ? '' : pp ? pp[1] : srcTag(a.source)) + '</small></button>';
       } else {
         body += '<span class="slot cont"' + style + '></span>';
       }
@@ -91,7 +92,7 @@ function queue(S) {
   const sums = cols.map((c) => '<span><i style="--c:' + esc(c.d.color) + '"></i><b>' + esc(c.d.name) + '</b> · ' + (c.works ? t('свободно: {n}', { n: c.free }) + (c.next ? ' · ' + t('ближайшее {t}', { t: c.next }) : '') + ' · ' + fromMin(c.e.a) + '–' + fromMin(c.e.b) + (c.e.bs !== null ? ' · ' + t('обед') + ' ' + fromMin(c.e.bs) + '–' + fromMin(c.e.be) : '') : t('выходной')) + '</span>').join('');
   return (cols.some((c) => c.works) ? '' : '<p class="alert">' + t('Выходной день по настройкам. Записаться можно только вручную.') + '</p>') +
     '<div class="qsum">' + sums + '</div>' +
-    '<div class="qlegend"><span class="lg st-booked">' + t('Записан') + '</span><span class="lg st-came">' + t('Пришёл') + '</span><span class="lg st-done">' + t('Оплачено') + '</span><span class="lg st-blocked">' + t('Закрыто') + '</span><span class="lg lg-off">' + t('Не работает') + '</span></div>' +
+    '<div class="qlegend"><span class="lg st-booked">' + t('Записан') + '</span><span class="lg st-came">' + t('Пришёл') + '</span><span class="lg st-done">' + t('Оплачено') + '</span><span class="lg st-blocked">' + t('Закрыто') + '</span><span class="lg pp-paid">💳 ' + t('Предоплата внесена') + '</span><span class="lg pp-wait">⏳ ' + t('Ждёт оплату или чек') + '</span><span class="lg lg-off">' + t('Не работает') + '</span></div>' +
     '<div class="qgrid" style="grid-template-columns:40px repeat(' + cols.length + ',minmax(0,1fr))"><div></div>' +
     cols.map((c) => '<div class="qh"><i style="--c:' + esc(c.d.color) + '"></i>' + esc(c.d.name) + '</div>').join('') + body + '</div>' +
     '<p class="note">' + t('Нажмите на свободную клетку, чтобы записать клиента. Занятое время записать нельзя: это защищено в базе, в том числе для сайта и бота.') + '</p>';
@@ -208,7 +209,7 @@ export function vSheet(S) {
       fld(t('Услуга'), sel('f-service', svcOpts, f.serviceId || '', 'data-f="serviceId"')) + field(t('Комментарий'), 'note', f.note, 'autocomplete="off"') +
       '<div class="row"><button class="btn" data-act="save-new">' + t('Записать') + '</button><button class="btn ghost" data-act="save-block">' + t('Закрыть время') + '</button></div>';
   } else if (sh.k === 'receipt') {
-    const a = (S.online || []).filter((x) => x.id === sh.id)[0]; if (!a) return '';
+    const a = anyAppt(S, sh.id); if (!a) return '';
     h = '<h2>🧾 ' + t('Чек на проверку') + '</h2><ul class="list"><li><div class="li-main"><b>' + esc(a.client_name || '—') + '</b><span class="small muted">' + esc(fmtPhone(a.client_phone || '')) + '</span></div></li>' +
       '<li><div class="li-main"><b>' + esc(dayLabel(hhmmDate(a.starts_at))) + ' · ' + hhmmOf(a.starts_at) + '</b><span class="small muted">' + esc(docName(S, a.doctor_id)) + '</span></div></li>' +
       '<li><div class="li-main"><b>' + t('К оплате') + '</b></div><span class="num">' + fmt(a.deposit) + ' ' + t('сум') + '</span></li></ul>' +
@@ -227,11 +228,14 @@ export function vSheet(S) {
       (a.client_phone ? '<li><div class="li-main"><b>' + t('Телефон') + '</b></div><a class="tel" href="tel:' + esc(a.client_phone) + '">' + esc(fmtPhone(a.client_phone)) + '</a></li>' : '') +
       '<li><div class="li-main"><b>' + t('Откуда запись') + '</b></div><span>' + t(a.source === 'site' ? 'Сайт' : a.source === 'bot' ? 'Бот' : 'Ресепшен') + '</span></li>' +
       (a.status === 'done' ? '<li><div class="li-main"><b>' + t('Оплата') + '</b></div><span class="num">' + fmt(a.amount) + ' · ' + t(METHODS.filter((m) => m[0] === a.pay_method)[0] ? METHODS.filter((m) => m[0] === a.pay_method)[0][1] : 'Наличные') + '</span></li>' : '') +
+      (a.pay_status && a.pay_status !== 'none' ? '<li><div class="li-main"><b>' + t('Предоплата') + '</b><span class="small muted">' + esc(bsvcName(S, a.bsvc_id)) + '</span></div><span class="num">' + fmt(a.deposit) + ' ' + t('сум') + '</span></li>' + '<li><div class="li-main"><b>' + t('Состояние оплаты') + '</b></div>' + payChip(a) + '</li>' : '') +
       (a.note && a.status !== 'blocked' ? '<li><div class="li-main"><b>' + t('Комментарий') + '</b></div><span>' + esc(a.note) + '</span></li>' : '') + '</ul>' +
-      '<div class="row">' + btns + '</div>';
+      (a.status === 'booked' && (a.pay_status === 'pending' || a.pay_status === 'rejected') ? '<p class="note">' + t('Клиент ещё не оплатил. Если оплата не придёт до {h}, бронь снимется сама.', { h: a.hold_until ? hhmmOf(a.hold_until) : '—' }) + '</p>' : '') +
+      (a.status === 'booked' && a.pay_status === 'paid' ? '<p class="note">' + t('Предоплата подтверждена. Она входит в стоимость услуги: при оплате на приёме укажите полную сумму.') + '</p>' : '') +
+      '<div class="row">' + (a.pay_status === 'review' ? '<button class="btn pay" data-act="rc-open" data-id="' + esc(a.id) + '">' + t('Проверить чек') + '</button>' : '') + ((a.pay_status === 'pending' || a.pay_status === 'rejected') && a.status === 'booked' ? '<button class="btn ghost" data-act="pp-waive" data-id="' + esc(a.id) + '">' + t('Принять без предоплаты') + '</button>' : '') + btns + '</div>';
   } else if (sh.k === 'pay' || sh.k === 'walkin') {
     const who = sh.k === 'walkin' ? '<h2>' + t('Приём без записи') + '</h2>' + fld(t('Врач'), sel('f-doctor', S.doctors.filter((d) => d.active).map((d) => [d.id, d.name]), f.doctorId || '', 'data-f="doctorId"')) + field(t('Имя клиента'), 'name', f.name, 'autocomplete="off"') + field(t('Телефон'), 'phone', f.phone, 'inputmode="tel" autocomplete="off" placeholder="+998"')
-      : '<h2>' + t('Оплата') + '</h2><p class="small muted">' + esc((S.appts.filter((x) => x.id === sh.id)[0] || {}).client_name || '') + '</p>';
+      : '<h2>' + t('Оплата') + '</h2><p class="small muted">' + esc((S.appts.filter((x) => x.id === sh.id)[0] || {}).client_name || '') + '</p>' + (((S.appts.filter((x) => x.id === sh.id)[0] || {}).pay_status === 'paid') ? '<p class="note">💳 ' + t('Клиент уже внёс предоплату {n} сум на карту. Она входит в стоимость: укажите полную сумму услуги.', { n: fmt((S.appts.filter((x) => x.id === sh.id)[0] || {}).deposit) }) + '</p>' : '');
     h = who + fld(t('Услуга'), sel('f-service', svcOpts, f.serviceId || '', 'data-f="serviceId"')) +
       fld(t('Сумма, сум'), '<input id="f-amount" type="text" inputmode="numeric" class="n" data-f="amount" data-kind="money" value="' + esc(f.amount || '') + '" placeholder="0">') +
       fld(t('Способ оплаты'), '<div class="seg three">' + METHODS.map((m) => '<button type="button" data-act="pay-m" data-id="' + m[0] + '" aria-pressed="' + ((f.method || 'cash') === m[0]) + '">' + t(m[1]) + '</button>').join('') + '</div>') +
@@ -249,6 +253,10 @@ export function vSheet(S) {
   }
   return '<div class="sheet" data-sheet><div class="sheet-card" role="dialog" aria-modal="true">' + close + h + '</div></div>';
 }
+// Предоплата в клетке очереди: чем бронь отличается от обычной (класс, подпись)
+const ppTag = (a) => a.status !== 'booked' ? null : a.pay_status === 'paid' ? ['pp-paid', '💳 ' + t('предоплата')] : a.pay_status === 'review' ? ['pp-wait', '🧾 ' + t('чек')] : a.pay_status === 'pending' ? ['pp-wait', '⏳ ' + t('ждёт оплату')] : a.pay_status === 'rejected' ? ['pp-wait', '⚠ ' + t('чек не принят')] : null;
+const anyAppt = (S, id) => (S.online || []).concat(S.appts || []).filter((x) => x.id === id)[0];
+const bsvcName = (S, id) => { const x = (S.bsvc || []).filter((b) => b.id === id)[0]; return x ? (getLang() === 'ru' ? x.name_ru : (x.name_uz || x.name_ru)) : ''; };
 function hhmmDate(iso) { return new Date(Date.parse(iso) + 5 * 3600 * 1000).toISOString().slice(0, 10); }
 
 const PAYCHIP = { pending: ['ждёт оплату', 'warn'], review: ['чек на проверке', 'warn'], rejected: ['чек не принят', 'bad'], paid: ['оплачено вперёд', 'ok'] };

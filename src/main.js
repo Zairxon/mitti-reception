@@ -101,7 +101,7 @@ async function loadReport() {
   renderView();
 }
 async function loadStaff() { try { S.staff = await api.listStaff(); } catch (e) { S.staff = []; } }
-async function reloadBase() { const b = await api.loadBase(); S.settings = b.settings; S.doctors = b.doctors; S.services = b.services; }
+async function reloadBase() { const b = await api.loadBase(); S.settings = b.settings; S.doctors = b.doctors; S.services = b.services; S.bsvc = b.bsvc || []; }
 
 let subscribed = false, liveTimer = null;
 async function afterLogin() {
@@ -241,10 +241,11 @@ document.addEventListener('click', (ev) => {
     case 'save-block': saveBlock(); break;
     case 'came': setStatus(id, 'came'); break;
     case 'noshow': setStatus(id, 'no_show'); break;
-    case 'cancel': askConfirm(T('Отменить эту запись? Время снова станет свободным.'), T('Отменить запись'), T('Назад')).then((ok) => { if (ok) setStatus(id, 'cancelled'); }); break;
+    case 'cancel': askConfirm((apptById(id) || {}).pay_status === 'paid' ? T('Отменить эту запись? Клиент уже внёс предоплату {n} сум: верните её или перенесите запись.', { n: fmt((apptById(id) || {}).deposit) }) : T('Отменить эту запись? Время снова станет свободным.'), T('Отменить запись'), T('Назад')).then((ok) => { if (ok) setStatus(id, 'cancelled'); }); break;
     case 'unblock': api.deleteAppt(id).then(() => { closeSheet(); return refreshDay(); }).catch(fail); break;
     case 'pay': openPay(id); break;
-    case 'rc-open': { const a = (S.online || []).filter((x) => x.id === id)[0]; if (!a) break; S.sheet = { k: 'receipt', id, url: null }; renderSheet(); api.receiptUrl(a.receipt_path).then((u) => { if (S.sheet && S.sheet.id === id) { S.sheet.url = u; renderSheet(); } }); break; }
+    case 'pp-waive': askConfirm(T('Клиент придёт без предоплаты и оплатит на месте? Бронь перестанет ждать оплату.'), T('Принять без предоплаты'), T('Назад')).then((ok) => { if (ok) api.updateAppt(id, { pay_status: 'none', hold_until: null }).then(async () => { toast(T('Готово')); await refreshDay(); }).catch(fail); }); break;
+    case 'rc-open': { const a = (S.online || []).concat(S.appts || []).filter((x) => x.id === id)[0]; if (!a || !a.receipt_path) { toast(T('Чек ещё не прислан')); break; } S.sheet = { k: 'receipt', id, url: null }; renderSheet(); api.receiptUrl(a.receipt_path).then((u) => { if (S.sheet && S.sheet.id === id) { S.sheet.url = u; renderSheet(); } }); break; }
     case 'rc-ok': case 'rc-no': { if (!S.sheet || S.sheet.busy) break; S.sheet.busy = true; renderSheet(); api.decideReceipt(id, act === 'rc-ok').then(async () => { toast(T(act === 'rc-ok' ? 'Оплата подтверждена, клиент уведомлён' : 'Чек отклонён, клиент уведомлён')); closeSheet(); await refreshDay(); }).catch((e) => { if (S.sheet) S.sheet.busy = false; renderSheet(); fail(e); }); break; }
     case 'pay-m': S.form.method = id; renderSheet(); break;
     case 'save-pay': savePay(); break;
