@@ -6,9 +6,14 @@ import { todayTz, isoAt, hhmmOf, isoDow, slotsOf, addDays, toMin, fromMin } from
 import { APP_LINKS } from './config.js';
 import { fmtPhone } from './phone.js';
 
-export const TABS = [['queue', 'Очередь'], ['clients', 'Клиенты'], ['cash', 'Касса'], ['report', 'Сводка'], ['set', 'Настройки']];
+export const TABS = [['queue', 'Очередь'], ['cash', 'Касса'], ['clients', 'Клиенты'], ['report', 'Сводка'], ['set', 'Настройки']];
 export const BUSY = ['booked', 'came', 'done', 'blocked'];
-const STATUS = { booked: 'Записан', came: 'Пришёл', done: 'Оплачено', cancelled: 'Отменён', no_show: 'Не пришёл', blocked: 'Время закрыто' };
+const STATUS = { booked: 'Записан', came: 'Пришёл', room: 'У врача', done: 'Оплачено', finished: 'Прошёл', cancelled: 'Отменён', no_show: 'Не пришёл', blocked: 'Время закрыто' };
+// Этап визита: записан → пришёл → у врача → оплачено → прошёл (приём завершён)
+export const phase = (a) => a.status === 'blocked' ? 'blocked' : a.finished_at ? 'finished' : a.status === 'done' ? 'done' : a.status === 'came' ? (a.room_at ? 'room' : 'came') : a.status;
+const svcPrice = (S, a) => { const x = (S.bsvc || []).filter((b) => b.id === a.bsvc_id)[0]; return x ? +x.price : Infinity; };
+// клиент уже оплатил всё вперёд: кнопка «Оплата» ему не нужна
+export const fullPre = (S, a) => a.pay_status === 'paid' && +a.deposit >= svcPrice(S, a);
 const METHODS = [['cash', 'Наличные'], ['card', 'Карта'], ['transfer', 'Перевод']];
 const CAL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>';
 const CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
@@ -82,8 +87,8 @@ function queue(S) {
       } else if (hit.s >= sMs && hit.s < eMs) {
         const a = hit.a, label = a.status === 'blocked' ? (a.note || t('Закрыто')) : (a.client_name || '—');
         const pp = ppTag(a);
-        body += '<button class="slot st-' + a.status + (pp ? ' ' + pp[0] : '') + '"' + style + ' data-act="appt" data-id="' + esc(a.id) + '"><b>' + esc(label) + '</b>' +
-          '<small>' + (a.status === 'done' ? '✓ ' + fmt(a.amount) : a.status === 'came' ? '● ' + t('ждёт') : a.status === 'blocked' ? '' : pp ? pp[1] : srcTag(a.source)) + '</small></button>';
+        body += '<button class="slot st-' + phase(a) + (pp ? ' ' + pp[0] : '') + '"' + style + ' data-act="appt" data-id="' + esc(a.id) + '"><b>' + esc(label) + '</b>' +
+          '<small>' + (a.finished_at ? '✔ ' + t('прошёл') : a.status === 'done' ? '✓ ' + fmt(a.amount) : a.room_at && a.status === 'came' ? '🩺 ' + t('у врача') : a.status === 'came' ? '● ' + t('ждёт') : a.status === 'blocked' ? '' : pp ? pp[1] : srcTag(a.source)) + '</small></button>';
       } else {
         body += '<span class="slot cont"' + style + '></span>';
       }
@@ -92,7 +97,7 @@ function queue(S) {
   const sums = cols.map((c) => '<span><i style="--c:' + esc(c.d.color) + '"></i><b>' + esc(c.d.name) + '</b> · ' + (c.works ? t('свободно: {n}', { n: c.free }) + (c.next ? ' · ' + t('ближайшее {t}', { t: c.next }) : '') + ' · ' + fromMin(c.e.a) + '–' + fromMin(c.e.b) + (c.e.bs !== null ? ' · ' + t('обед') + ' ' + fromMin(c.e.bs) + '–' + fromMin(c.e.be) : '') : t('выходной')) + '</span>').join('');
   return (cols.some((c) => c.works) ? '' : '<p class="alert">' + t('Выходной день по настройкам. Записаться можно только вручную.') + '</p>') +
     '<div class="qsum">' + sums + '</div>' +
-    '<div class="qlegend"><span class="lg st-booked">' + t('Записан') + '</span><span class="lg st-came">' + t('Пришёл') + '</span><span class="lg st-done">' + t('Оплачено') + '</span><span class="lg st-blocked">' + t('Закрыто') + '</span><span class="lg pp-paid">💳 ' + t('Предоплата внесена') + '</span><span class="lg pp-wait">⏳ ' + t('Ждёт оплату или чек') + '</span><span class="lg lg-off">' + t('Не работает') + '</span></div>' +
+    '<div class="qlegend">' + [['booked', 'Записан'], ['came', 'Пришёл'], ['room', 'У врача'], ['done', 'Оплачено'], ['finished', 'Прошёл'], ['pp-paid', '💳 Предоплата'], ['pp-wait', '⏳ Ждёт оплату'], ['blocked', 'Закрыто'], ['off', 'Не работает']].map((x) => '<span class="lg k-' + x[0] + '">' + t(x[1]) + '</span>').join('') + '</div>' +
     '<div class="qgrid" style="grid-template-columns:40px repeat(' + cols.length + ',minmax(0,1fr))"><div></div>' +
     cols.map((c) => '<div class="qh"><i style="--c:' + esc(c.d.color) + '"></i>' + esc(c.d.name) + '</div>').join('') + body + '</div>' +
     '<p class="note">' + t('Нажмите на свободную клетку, чтобы записать клиента. Занятое время записать нельзя: это защищено в базе, в том числе для сайта и бота.') + '</p>';
@@ -108,7 +113,7 @@ export function clientList(S) {
 function clients(S) {
   return '<section><h2>' + t('Клиенты') + '</h2>' +
     '<div class="panel">' + fld(t('Поиск по имени или телефону'), '<input id="cq" type="text" data-f="cq" value="' + esc(S.cq || '') + '" autocomplete="off">') +
-    '<div class="row"><button class="btn" data-act="new-client">' + t('Новый клиент') + '</button></div></div>' +
+    '<div class="row gaptop"><button class="btn" data-act="new-client">' + t('Новый клиент') + '</button></div></div>' +
     '<div id="clist">' + clientList(S) + '</div></section>';
 }
 
@@ -174,7 +179,7 @@ function settings(S) {
   const doctors = '<section><h2>' + t('Врачи') + '</h2>' + S.doctors.map((d) => {
     const own = !!(d.work_start || d.work_days), e = effOf(S, d);
     const days = [1, 2, 3, 4, 5, 6, 7].map((n) => '<button type="button" class="pill" data-act="doc-wd" data-id="' + esc(d.id) + '" data-n="' + n + '" aria-pressed="' + (e.days.indexOf(n) >= 0) + '">' + weekdays()[n - 1] + '</button>').join('');
-    return '<div class="panel docbox"><div class="rowline"><input type="text" data-doc-name="' + esc(d.id) + '" value="' + esc(d.name) + '">' + pill('doc-active', d.id, d.active, d.active ? t('Принимает') : t('Не принимает')) + '</div>' +
+    return '<div class="panel docbox"><div class="rowline"><input type="text" data-doc-name="' + esc(d.id) + '" value="' + esc(d.name) + '">' + '<span class="yn" role="group" aria-label="' + esc(t('Принимает')) + '"><button type="button" class="yes' + (d.active ? ' on' : '') + '" data-act="doc-set" data-id="' + esc(d.id) + '" data-v="1" aria-pressed="' + d.active + '" aria-label="' + esc(t('Принимает')) + '">✓</button><button type="button" class="no' + (!d.active ? ' on' : '') + '" data-act="doc-set" data-id="' + esc(d.id) + '" data-v="0" aria-pressed="' + !d.active + '" aria-label="' + esc(t('Не принимает')) + '">✕</button></span>' + '</div>' +
       '<div class="grid">' + fld(t('Начало'), '<input type="text" inputmode="numeric" class="n" id="ws-' + esc(d.id) + '" data-doc-ws="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="' + fromMin(toMin(String(S.settings.work_start).slice(0, 5))) + '" value="' + (d.work_start ? esc(String(d.work_start).slice(0, 5)) : '') + '">') +
       fld(t('Конец'), '<input type="text" inputmode="numeric" class="n" id="we-' + esc(d.id) + '" data-doc-we="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="' + fromMin(toMin(String(S.settings.work_end).slice(0, 5))) + '" value="' + (d.work_end ? esc(String(d.work_end).slice(0, 5)) : '') + '">') + '</div>' +
       '<div class="grid">' + fld(t('Обед: начало'), '<input type="text" inputmode="numeric" class="n" id="bs-' + esc(d.id) + '" data-doc-bs="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="--:--" value="' + (d.break_start ? esc(String(d.break_start).slice(0, 5)) : '') + '">') +
@@ -224,7 +229,7 @@ export function vSheet(S) {
     h = '<h2>' + esc(a.status === 'blocked' ? (a.note || t('Закрыто')) : (a.client_name || '—')) + '</h2>' +
       '<ul class="list"><li><div class="li-main"><b>' + t('Врач') + '</b></div><span>' + esc(docName(S, a.doctor_id)) + '</span></li>' +
       '<li><div class="li-main"><b>' + t('Время') + '</b></div><span class="num">' + hhmmOf(a.starts_at) + ' – ' + hhmmOf(a.ends_at) + '</span></li>' +
-      '<li><div class="li-main"><b>' + t('Статус') + '</b></div><span>' + t(STATUS[a.status]) + '</span></li>' +
+      '<li><div class="li-main"><b>' + t('Статус') + '</b></div><span>' + t(STATUS[phase(a)]) + '</span></li>' +
       (a.client_phone ? '<li><div class="li-main"><b>' + t('Телефон') + '</b></div><a class="tel" href="tel:' + esc(a.client_phone) + '">' + esc(fmtPhone(a.client_phone)) + '</a></li>' : '') +
       '<li><div class="li-main"><b>' + t('Откуда запись') + '</b></div><span>' + t(a.source === 'site' ? 'Сайт' : a.source === 'bot' ? 'Бот' : 'Ресепшен') + '</span></li>' +
       (a.status === 'done' ? '<li><div class="li-main"><b>' + t('Оплата') + '</b></div><span class="num">' + fmt(a.amount) + ' · ' + t(METHODS.filter((m) => m[0] === a.pay_method)[0] ? METHODS.filter((m) => m[0] === a.pay_method)[0][1] : 'Наличные') + '</span></li>' : '') +

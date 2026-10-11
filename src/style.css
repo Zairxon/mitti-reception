@@ -504,3 +504,35 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 .slot.pp-wait small{color:var(--warn);font-weight:600}
 .lg.pp-paid{border-color:var(--good);color:var(--good);box-shadow:inset 3px 0 0 var(--good)}
 .lg.pp-wait{border-style:dashed;border-color:var(--warn);color:var(--warn)}
+
+/* ===== этапы визита: плашки одного шаблона, без линий, разные цвета ===== */
+.qlegend{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:16px}
+.lg,.slot.st-booked,.slot.st-came,.slot.st-room,.slot.st-done,.slot.st-finished,.slot.st-blocked,.slot.pp-paid,.slot.pp-wait{border:0!important;box-shadow:none!important;background-image:none!important}
+.lg{display:flex;align-items:center;justify-content:center;min-height:34px;padding:6px 8px;border-radius:10px;text-align:center;font-size:12px;font-weight:600;color:var(--ink)}
+.lg.k-booked,.slot.st-booked{--k:#e8924a}
+.lg.k-came,.slot.st-came{--k:#d9a21b}
+.lg.k-room,.slot.st-room{--k:#8a63d2}
+.lg.k-done,.slot.st-done{--k:#3f9a52}
+.lg.k-finished,.slot.st-finished{--k:#3b8fb5}
+.lg.k-blocked,.slot.st-blocked{--k:#6d7f9f}
+.lg.k-off{--k:#c9748a}
+.lg.k-pp-paid,.slot.pp-paid{--k:#1f9d8a}
+.lg.k-pp-wait,.slot.pp-wait{--k:#c9b21f}
+.lg[class*="k-"],.slot.st-booked,.slot.st-came,.slot.st-room,.slot.st-done,.slot.st-finished,.slot.st-blocked,.slot.pp-paid,.slot.pp-wait{background-color:color-mix(in srgb,var(--k) 26%,var(--surface))!important}
+.slot.st-finished{opacity:.85}
+.slot small{color:var(--ink);opacity:.8}
+.slot.pp-paid small,.slot.pp-wait small{color:var(--ink);font-weight:600;opacity:.9}
+/* касса: каждый раздел своего цвета */
+.ksec{--k:var(--accent);border-left:5px solid var(--k);border-radius:12px;padding:10px 12px 12px 14px;background:color-mix(in srgb,var(--k) 9%,var(--surface))}
+.ksec.k-wait{--k:#d9a21b}.ksec.k-exp{--k:#e8924a}.ksec.k-paid{--k:#3f9a52}.ksec.k-fin{--k:#3b8fb5}
+.ksec h2{display:flex;align-items:center;gap:8px}
+.kdot{width:11px;height:11px;border-radius:50%;background:var(--k);flex:none}
+.kcnt{margin-left:auto;min-width:26px;text-align:center;padding:1px 8px;border-radius:999px;background:var(--k);color:#fff;font-size:12px;font-weight:700}
+.ksec .list li{border-bottom-color:color-mix(in srgb,var(--k) 25%,transparent)}
+/* принимает / не принимает */
+.yn{display:inline-flex;gap:6px;flex:none}
+.yn button{width:40px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:18px;font-weight:700;cursor:pointer}
+.yn .yes.on{background:var(--good);border-color:var(--good);color:#fff}
+.yn .no.on{background:var(--bad);border-color:var(--bad);color:#fff}
+.invbox{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px dashed var(--line);border-radius:10px;margin-top:10px}
+.invbox input{font-size:12px}

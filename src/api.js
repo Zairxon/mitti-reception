@@ -72,6 +72,22 @@ export async function decideReceipt(id, okFlag) {
   const j = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(j.error === 'already' ? t('Уже обработано другим сотрудником') : t('Не удалось сохранить решение'));
 }
+// Вход сотрудника по ссылке-приглашению (без пароля) и управление доступом через защищённую функцию
+export async function verifyInvite(tokenHash) {
+  let r = await sb.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
+  if (r.error) r = await sb.auth.verifyOtp({ token_hash: tokenHash, type: 'email' });
+  if (r.error) throw r.error;
+}
+async function staffFn(body) {
+  const { data } = await sb.auth.getSession(); const tok = data.session && data.session.access_token;
+  const res = await fetch(SUPABASE_URL + '/functions/v1/staff-invite', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + tok }, body: JSON.stringify(body) });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error === 'bad_name' ? t('Введите имя сотрудника') : t('Не удалось выполнить. Попробуйте ещё раз.'));
+  return j;
+}
+export const inviteStaff = (name) => staffFn({ op: 'invite', name });
+export const relinkStaff = (user_id) => staffFn({ op: 'relink', user_id });
+export const revokeStaff = (user_id) => staffFn({ op: 'revoke', user_id });
 export async function loadOnline() {
   return ok(await sb.from('appointments').select('*').in('source', ['site', 'bot']).eq('status', 'booked').gte('starts_at', new Date().toISOString()).order('starts_at').limit(60));
 }

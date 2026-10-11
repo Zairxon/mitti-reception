@@ -19,7 +19,7 @@ import { t as T, getLang, setLang, brand } from './i18n.js';
 import { mountFooter } from './footer.js';
 import { parseDate, maskDate, openCal, closeCal } from './datepicker.js';
 import { openSelect, closeSelect, askConfirm } from './ui.js';
-import { vLogin, vNoAccess, vNav, vTabs, vView, vSheet, clientList, TABS } from './views.js';
+import { vLogin, vNoAccess, vNav, vTabs, vView, vSheet, clientList, TABS, fullPre } from './views.js';
 import { todayTz, isoAt, addDays, monthStart, maskHM, validHM } from './time.js';
 import { fmtPhoneInput, cleanPhone } from './phone.js';
 import { num, fmt } from './util.js';
@@ -29,10 +29,10 @@ const COLORS = ['#bd5a17', '#2f7d8c', '#7a5bb5', '#3f8a4f', '#c0392b'];
 const S = {
   ready: false, user: null, role: null, auth: { email: '', pass: '', busy: false },
   settings: null, doctors: [], services: [], clients: [], staff: [], day: todayTz(), appts: [],
-  tab: 'queue', online: [], sheet: null, form: {}, cq: '', hist: [], newStaff: '', theme: 'auto',
+  tab: 'queue', online: [], sheet: null, form: {}, cq: '', hist: [], newStaff: '', invite: { name: '', link: '' }, theme: 'auto',
   rep: { preset: 'today', from: todayTz(), to: todayTz(), rows: null },
 };
-try { const t0 = localStorage.getItem('mitti-tab'); if (TABS.some((x) => x[0] === t0)) S.tab = t0; } catch (e) { /* без запоминания */ }
+// при входе всегда открывается «Очередь»
 
 /* ---------- тема ---------- */
 const THEMES = ['auto', 'light', 'dark'];
@@ -76,8 +76,26 @@ function render() {
   renderSheet();
 }
 function renderView() { if (!S.user || !S.role || !$('view')) return; $('nav').innerHTML = vNav(S); $('view').innerHTML = vView(S); }
-function renderSheet() { $('sheet').innerHTML = vSheet(S); }
-function closeSheet() { S.sheet = null; S.form = {}; renderSheet(); }
+function renderSheet() {
+  $('sheet').innerHTML = vSheet(S);
+  if (S.sheet && !(history.state && history.state.sheet)) history.pushState({ tab: S.tab, sheet: 1 }, ''); // «назад» сначала закроет окно
+}
+function closeSheet() { const had = !!S.sheet; S.sheet = null; S.form = {}; renderSheet(); if (had && history.state && history.state.sheet) history.back(); }
+// «Назад» на телефоне: окно закрывается, затем возвращаемся на «Очередь», затем выход из приложения
+history.replaceState({ root: 1 }, '');
+window.addEventListener('popstate', (e) => {
+  const st = e.state || {};
+  if (S.sheet && !st.sheet) { S.sheet = null; S.form = {}; renderSheet(); return; }
+  if (st.sheet) return;
+  const t = st.tab || 'queue';
+  if (t !== S.tab) { S.tab = t; render(); window.scrollTo(0, 0); if (t === 'report') loadReport(); }
+});
+function openTab(id) {
+  S.tab = id; render(); window.scrollTo(0, 0);
+  const cur = history.state || {};
+  if (id === 'queue') { if (cur.tab) history.back(); } else if (cur.tab) history.replaceState({ tab: id }, ''); else history.pushState({ tab: id }, '');
+  if (id === 'report') loadReport(); if (id === 'set' && S.role === 'owner') loadStaff().then(renderView);
+}
 
 /* ---------- загрузка данных ---------- */
 function dayChanged() { return loadDay().then(() => { render(); if (S.tab === 'report') loadReport(); }).catch(fail); }
@@ -230,7 +248,7 @@ document.addEventListener('click', (ev) => {
     case 'login': authAction('in'); break;
     case 'signup': authAction('up'); break;
     case 'logout': api.signOut().then(() => { S.user = null; S.role = null; closeSheet(); render(); }); break;
-    case 'tab': S.tab = id; try { localStorage.setItem('mitti-tab', id); } catch (e) { /* не страшно */ } render(); window.scrollTo(0, 0); if (id === 'report') loadReport(); if (id === 'set' && S.role === 'owner') loadStaff().then(renderView); break;
+    case 'tab': openTab(id); break;
     case 'day-prev': S.day = addDays(S.day, -1); dayChanged(); break;
     case 'day-next': S.day = addDays(S.day, 1); dayChanged(); break;
     case 'day-today': S.day = todayTz(); dayChanged(); break;
@@ -240,6 +258,15 @@ document.addEventListener('click', (ev) => {
     case 'save-new': saveNew(); break;
     case 'save-block': saveBlock(); break;
     case 'came': setStatus(id, 'came'); break;
+    case 'room': { const a = apptById(id); if (a) api.updateAppt(id, { status: a.status === 'booked' ? 'came' : a.status, room_at: new Date().toISOString() }).then(async () => { closeSheet(); await refreshDay(); toast(T('Клиент у врача')); }).catch(fail); break; }
+    case 'finish': {
+      const a = apptById(id); if (!a) break;
+      const go = () => { const now = new Date().toISOString(), patch = { finished_at: now }; if (a.status === 'booked') patch.status = 'came'; if (a.status !== 'done' && fullPre(S, a)) Object.assign(patch, { status: 'done', amount: +a.deposit, pay_method: 'card', paid_at: now }); return api.updateAppt(id, patch).then(async () => { closeSheet(); await refreshDay(); toast(T('Приём завершён')); }).catch(fail); };
+      if (a.status !== 'done' && !fullPre(S, a)) askConfirm(T('Клиент ещё не оплатил. Всё равно отметить, что приём завершён?'), T('Приём завершён'), T('Назад')).then((ok) => { if (ok) go(); }); else go();
+      break;
+    }
+    case 'reopen': api.updateAppt(id, { finished_at: null }).then(async () => { closeSheet(); await refreshDay(); }).catch(fail); break;
+    case 'doc-set': { const d = S.doctors.filter((x) => x.id === id)[0], v = b.dataset.v === '1'; if (d && d.active !== v) api.updateDoctor(id, { active: v }).then(reloadBase).then(renderView).catch(fail); break; }
     case 'noshow': setStatus(id, 'no_show'); break;
     case 'cancel': askConfirm((apptById(id) || {}).pay_status === 'paid' ? T('Отменить эту запись? Клиент уже внёс предоплату {n} сум: верните её или перенесите запись.', { n: fmt((apptById(id) || {}).deposit) }) : T('Отменить эту запись? Время снова станет свободным.'), T('Отменить запись'), T('Назад')).then((ok) => { if (ok) setStatus(id, 'cancelled'); }); break;
     case 'unblock': api.deleteAppt(id).then(() => { closeSheet(); return refreshDay(); }).catch(fail); break;
@@ -265,7 +292,7 @@ document.addEventListener('click', (ev) => {
       api.updateDoctor(id, { work_days: cur }).then(reloadBase).then(renderView).catch(fail); break;
     }
     case 'doc-reset': api.updateDoctor(id, { work_start: null, work_end: null, work_days: null }).then(reloadBase).then(renderView).catch(fail); break;
-    case 'goto-day': S.day = b.dataset.day; S.tab = 'queue'; dayChanged(); window.scrollTo(0, 0); break;
+    case 'goto-day': S.day = b.dataset.day; openTab('queue'); dayChanged(); break;
     case 'doc-del': askConfirm(T('Удалить врача «{n}»? Это нельзя отменить.', { n: b.dataset.name }), T('Удалить врача'), T('Назад')).then((ok) => { if (ok) api.deleteDoctor(id).then(reloadBase).then(() => { renderView(); toast(T('Врач удалён')); }).catch(fail); }); break;
     case 'add-doctor': api.addDoctor({ name: T('Врач') + ' ' + (S.doctors.length + 1), sort: S.doctors.length + 1, color: COLORS[S.doctors.length % COLORS.length] }).then(reloadBase).then(renderView).catch(fail); break;
     case 'add-svc': api.addService({ name: T('Новая услуга'), price: 0, sort: S.services.length + 1 }).then(reloadBase).then(renderView).catch(fail); break;
@@ -293,6 +320,7 @@ document.addEventListener('input', (ev) => {
   if (el.id === 'auth-pass') S.auth.pass = el.value;
   if (f === 'cq') { S.cq = el.value; const l = $('clist'); if (l) l.innerHTML = clientList(S); return; }
   if (f === 'newStaff') { S.newStaff = el.value; return; }
+  if (f === 'inviteName') { S.invite.name = el.value; return; }
   if (f) {
     S.form[f] = el.value;
     if ((f === 'name' || f === 'phone') && S.sheet && S.sheet.k === 'new') { S.form.clientId = ''; showSuggestions(); }
@@ -345,6 +373,8 @@ document.addEventListener('change', (ev) => {
 registerSW({ immediate: true });
 (async () => {
   render();
+  const invTok = new URLSearchParams(location.search).get('invite'); // вход сотрудника по ссылке-приглашению
+  if (invTok) { try { await api.verifyInvite(invTok); } catch (e) { toast(T('Ссылка устарела. Попросите владельца создать новую.')); } history.replaceState({ root: 1 }, '', location.pathname); }
   S.user = await api.getUser();
   if (S.user) await afterLogin();
   S.ready = true; render();
