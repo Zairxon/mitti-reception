@@ -4,6 +4,7 @@ import { esc, fmt } from './util.js';
 import { fmtDate } from './datepicker.js';
 import { todayTz, isoAt, hhmmOf, isoDow, slotsOf, addDays, toMin, fromMin } from './time.js';
 import { APP_LINKS } from './config.js';
+import { fmtPhone } from './phone.js';
 
 export const TABS = [['queue', 'Очередь'], ['clients', 'Клиенты'], ['cash', 'Касса'], ['report', 'Сводка'], ['set', 'Настройки']];
 export const BUSY = ['booked', 'came', 'done', 'blocked'];
@@ -47,10 +48,9 @@ export function vNoAccess(S) {
 
 /* ---------- верхняя навигация ---------- */
 export function vNav(S) {
-  if (S.tab !== 'queue' && S.tab !== 'cash') return '';
-  return '<div class="top"><div class="mnav daynav"><button class="btn ghost sq" data-act="day-prev" aria-label="' + esc(t('Предыдущий день')) + '">‹</button>' +
-    '<div class="daymid">' + dateField('day-input', S.day) + '<span class="small muted">' + esc(dayLabel(S.day)) + '</span></div>' +
-    '<button class="btn ghost sq" data-act="day-next" aria-label="' + esc(t('Следующий день')) + '">›</button></div>' +
+  return '<div class="top"><div class="daynav"><button class="btn ghost navbtn" data-act="day-prev" aria-label="' + esc(t('Предыдущий день')) + '">‹</button>' +
+    '<div class="daymid">' + dateField('day-input', S.day) + '<span class="daylabel">' + esc(dayLabel(S.day)) + '</span></div>' +
+    '<button class="btn ghost navbtn" data-act="day-next" aria-label="' + esc(t('Следующий день')) + '">›</button></div>' +
     (S.day !== todayTz() ? '<div class="row"><button class="btn ghost" data-act="day-today">' + t('Сегодня') + '</button></div>' : '') + '</div>';
 }
 export function vTabs(S) {
@@ -91,7 +91,7 @@ function queue(S) {
   const sums = cols.map((c) => '<span><i style="--c:' + esc(c.d.color) + '"></i><b>' + esc(c.d.name) + '</b> · ' + (c.works ? t('свободно: {n}', { n: c.free }) + (c.next ? ' · ' + t('ближайшее {t}', { t: c.next }) : '') + ' · ' + fromMin(c.e.a) + '–' + fromMin(c.e.b) + (c.e.bs !== null ? ' · ' + t('обед') + ' ' + fromMin(c.e.bs) + '–' + fromMin(c.e.be) : '') : t('выходной')) + '</span>').join('');
   return (cols.some((c) => c.works) ? '' : '<p class="alert">' + t('Выходной день по настройкам. Записаться можно только вручную.') + '</p>') +
     '<div class="qsum">' + sums + '</div>' +
-    '<div class="qlegend"><span class="lg st-booked">' + t('Записан') + '</span><span class="lg st-came">' + t('Пришёл') + '</span><span class="lg st-done">' + t('Оплачено') + '</span><span class="lg st-blocked">' + t('Закрыто') + '</span><span class="lg lg-off">' + t('не работает') + '</span></div>' +
+    '<div class="qlegend"><span class="lg st-booked">' + t('Записан') + '</span><span class="lg st-came">' + t('Пришёл') + '</span><span class="lg st-done">' + t('Оплачено') + '</span><span class="lg st-blocked">' + t('Закрыто') + '</span><span class="lg lg-off">' + t('Не работает') + '</span></div>' +
     '<div class="qgrid" style="grid-template-columns:40px repeat(' + cols.length + ',minmax(0,1fr))"><div></div>' +
     cols.map((c) => '<div class="qh"><i style="--c:' + esc(c.d.color) + '"></i>' + esc(c.d.name) + '</div>').join('') + body + '</div>' +
     '<p class="note">' + t('Нажмите на свободную клетку, чтобы записать клиента. Занятое время записать нельзя: это защищено в базе, в том числе для сайта и бота.') + '</p>';
@@ -102,7 +102,7 @@ export function clientList(S) {
   const q = (S.cq || '').trim().toLowerCase(), qd = q.replace(/\D/g, '');
   const list = S.clients.filter((c) => !q || (c.name || '').toLowerCase().indexOf(q) >= 0 || (qd && (c.phone || '').replace(/\D/g, '').indexOf(qd) >= 0)).slice(0, 80);
   if (!list.length) return '<p class="empty">' + t('Клиентов не найдено.') + '</p>';
-  return '<ul class="list">' + list.map((c) => '<li><div class="li-main"><b>' + esc(c.name) + '</b><span class="small muted">' + esc(c.phone || '') + (c.source !== 'reception' ? ' · ' + t(c.source === 'site' ? 'сайт' : 'бот') : '') + '</span></div><button class="btn ghost" data-act="client" data-id="' + esc(c.id) + '">' + t('Открыть') + '</button></li>').join('') + '</ul>';
+  return '<ul class="list">' + list.map((c) => '<li><div class="li-main"><b>' + esc(c.name) + '</b><span class="small muted">' + esc(fmtPhone(c.phone)) + (c.source !== 'reception' ? ' · ' + t(c.source === 'site' ? 'сайт' : 'бот') : '') + '</span></div><button class="btn ghost" data-act="client" data-id="' + esc(c.id) + '">' + t('Открыть') + '</button></li>').join('') + '</ul>';
 }
 function clients(S) {
   return '<section><h2>' + t('Клиенты') + '</h2>' +
@@ -123,16 +123,16 @@ function cash(S) {
     '<div class="kpis"><div class="kpi"><span>' + t('Принято клиентов') + '</span><b>' + paid.length + '</b></div><div class="kpi"><span>' + t('Сумма') + '</span><b>' + fmt(total) + '</b></div>' +
     '<div class="kpi"><span>' + t('Наличные') + '</span><b>' + fmt(by.cash) + '</b></div><div class="kpi"><span>' + t('Карта и перевод') + '</span><b>' + fmt(by.card + by.transfer) + '</b></div></div>' +
     '<div class="row"><button class="btn" data-act="walkin">' + t('Приём без записи') + '</button></div></section>' +
-    '<section><h2>' + t('Ждут оплаты') + '</h2>' + (waiting.length ? '<ul class="list">' + waiting.map((a) => row(a, '<button class="btn" data-act="pay" data-id="' + esc(a.id) + '">' + t('Оплата') + '</button>')).join('') + '</ul>' : '<p class="empty">' + t('Никто не ждёт оплаты.') + '</p>') + '</section>' +
+    '<section><h2>' + t('Ждут оплаты') + '</h2>' + (waiting.length ? '<ul class="list">' + waiting.map((a) => row(a, '<button class="btn pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Оплата') + '</button>')).join('') + '</ul>' : '<p class="empty">' + t('Никто не ждёт оплаты.') + '</p>') + '</section>' +
     '<section><h2>' + t('Записаны, ещё не пришли') + '</h2>' + (expected.length ? '<ul class="list">' + expected.map((a) => row(a, '<button class="btn ghost" data-act="came" data-id="' + esc(a.id) + '">' + t('Пришёл') + '</button>')).join('') + '</ul>' : '<p class="empty">' + t('Нет записанных.') + '</p>') + '</section>' +
-    '<section><h2>' + t('Оплачено') + '</h2>' + (paid.length ? '<ul class="list">' + paid.map((a) => row(a, '<button class="btn ghost" data-act="pay" data-id="' + esc(a.id) + '">' + t('Изменить') + '</button>')).join('') + '</ul>' : '<p class="empty">' + t('Оплат пока нет.') + '</p>') + '</section>';
+    '<section><h2>' + t('Оплачено') + '</h2>' + (paid.length ? '<ul class="list">' + paid.map((a) => row(a, '<button class="btn ghost pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Изменить') + '</button>')).join('') + '</ul>' : '<p class="empty">' + t('Оплат пока нет.') + '</p>') + '</section>';
 }
 
 /* ---------- сводка по врачам ---------- */
 function report(S) {
   const r = S.rep, rows = r.rows;
   let h = '<section><h2>' + t('Сколько клиентов принял каждый врач') + '</h2><div class="panel">' +
-    '<div class="pills">' + [['today', 'Сегодня'], ['week', '7 дней'], ['month', 'Месяц'], ['custom', 'Период']].map((x) => pill('rep-preset', x[0], r.preset === x[0], t(x[1]))).join('') + '</div>' +
+    '<div class="pills">' + [['today', S.day === todayTz() ? 'Сегодня' : 'День'], ['week', '7 дней'], ['month', 'Месяц'], ['custom', 'Период']].map((x) => pill('rep-preset', x[0], r.preset === x[0], t(x[1]))).join('') + '</div>' +
     '<div class="grid">' + fld(t('С'), dateField('rep-from', r.from)) + fld(t('По'), dateField('rep-to', r.to)) + '</div></div>';
   if (r.from && r.to) h += '<p class="small muted">' + (r.from === r.to ? t('Период: {a}', { a: esc(dayLabel(r.from)) }) : t('Период: {a} — {b}', { a: esc(dayLabel(r.from)), b: esc(dayLabel(r.to)) })) + '</p>';
   if (!rows) return h + '<p class="empty">' + t('Загрузка…') + '</p></section>';
@@ -150,7 +150,6 @@ function appsBlock(S) {
   const row = (name, desc, url) => '<li><div class="li-main"><b>' + t(name) + '</b><span class="small muted">' + t(desc) + '</span></div><a class="btn ghost" href="' + url + '" target="_blank" rel="noopener">' + t('Открыть') + '</a></li>';
   return '<section><h2>' + t('Приложения клиники') + '</h2><ul class="list">' +
     (S.role === 'owner' ? row('Главный', 'бухгалтерия, зарплата, отчёты', APP_LINKS.main) : '') +
-    row('Ресепшен', 'приём клиентов и касса', APP_LINKS.reception) +
     row('Очередь', 'запись для клиентов: ссылка для Instagram и бота', APP_LINKS.queue) + '</ul></section>';
 }
 
@@ -180,7 +179,7 @@ function settings(S) {
       '<div class="grid">' + fld(t('Обед: начало'), '<input type="text" inputmode="numeric" class="n" id="bs-' + esc(d.id) + '" data-doc-bs="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="--:--" value="' + (d.break_start ? esc(String(d.break_start).slice(0, 5)) : '') + '">') +
       fld(t('Обед: конец'), '<input type="text" inputmode="numeric" class="n" id="be-' + esc(d.id) + '" data-doc-be="' + esc(d.id) + '" data-kind="hm" maxlength="5" placeholder="--:--" value="' + (d.break_end ? esc(String(d.break_end).slice(0, 5)) : '') + '">') + '</div>' +
       fld(t('Рабочие дни врача'), '<div class="pills week">' + days + '</div>') +
-      '<div class="row"><button class="btn ghost danger" data-act="doc-del" data-id="' + esc(d.id) + '" data-name="' + esc(d.name) + '">' + t('Удалить врача') + '</button>' + (own ? '<span class="chip">' + t('свои часы') + '</span><button class="btn ghost" data-act="doc-reset" data-id="' + esc(d.id) + '">' + t('Как у клиники') + '</button>' : '<span class="small muted">' + t('Сейчас часы как у клиники.') + '</span>') + '</div></div>';
+      '<div class="row"><button class="btn ghost danger small" data-act="doc-del" data-id="' + esc(d.id) + '" data-name="' + esc(d.name) + '">' + t('Удалить врача') + '</button>' + (own ? '<span class="chip">' + t('свои часы') + '</span><button class="btn ghost" data-act="doc-reset" data-id="' + esc(d.id) + '">' + t('Как у клиники') + '</button>' : '<span class="small muted">' + t('Сейчас часы как у клиники.') + '</span>') + '</div></div>';
   }).join('') +
     '<div class="row"><button class="btn ghost" data-act="add-doctor">' + t('Добавить врача') + '</button></div>' +
     '<p class="note">' + t('Время работы врача: пустые поля значат часы клиники. Вне часов врача клетки закрыты, и сайт с ботом тоже не покажут это время.') + '</p>' +
@@ -210,15 +209,15 @@ export function vSheet(S) {
       '<div class="row"><button class="btn" data-act="save-new">' + t('Записать') + '</button><button class="btn ghost" data-act="save-block">' + t('Закрыть время') + '</button></div>';
   } else if (sh.k === 'appt') {
     const a = S.appts.filter((x) => x.id === sh.id)[0]; if (!a) return '';
-    const btns = a.status === 'booked' ? '<button class="btn" data-act="came" data-id="' + esc(a.id) + '">' + t('Пришёл') + '</button><button class="btn" data-act="pay" data-id="' + esc(a.id) + '">' + t('Оплата') + '</button><button class="btn ghost" data-act="noshow" data-id="' + esc(a.id) + '">' + t('Не пришёл') + '</button><button class="btn ghost" data-act="cancel" data-id="' + esc(a.id) + '">' + t('Отменить запись') + '</button>'
-      : a.status === 'came' ? '<button class="btn" data-act="pay" data-id="' + esc(a.id) + '">' + t('Оплата') + '</button><button class="btn ghost" data-act="cancel" data-id="' + esc(a.id) + '">' + t('Отменить запись') + '</button>'
-      : a.status === 'done' ? '<button class="btn ghost" data-act="pay" data-id="' + esc(a.id) + '">' + t('Изменить оплату') + '</button>'
+    const btns = a.status === 'booked' ? '<button class="btn" data-act="came" data-id="' + esc(a.id) + '">' + t('Пришёл') + '</button><button class="btn pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Оплата') + '</button><button class="btn ghost" data-act="noshow" data-id="' + esc(a.id) + '">' + t('Не пришёл') + '</button><button class="btn ghost" data-act="cancel" data-id="' + esc(a.id) + '">' + t('Отменить запись') + '</button>'
+      : a.status === 'came' ? '<button class="btn pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Оплата') + '</button><button class="btn ghost" data-act="cancel" data-id="' + esc(a.id) + '">' + t('Отменить запись') + '</button>'
+      : a.status === 'done' ? '<button class="btn ghost pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Изменить оплату') + '</button>'
       : a.status === 'blocked' ? '<button class="btn" data-act="unblock" data-id="' + esc(a.id) + '">' + t('Открыть время') + '</button>' : '';
     h = '<h2>' + esc(a.status === 'blocked' ? (a.note || t('Закрыто')) : (a.client_name || '—')) + '</h2>' +
       '<ul class="list"><li><div class="li-main"><b>' + t('Врач') + '</b></div><span>' + esc(docName(S, a.doctor_id)) + '</span></li>' +
       '<li><div class="li-main"><b>' + t('Время') + '</b></div><span class="num">' + hhmmOf(a.starts_at) + ' – ' + hhmmOf(a.ends_at) + '</span></li>' +
       '<li><div class="li-main"><b>' + t('Статус') + '</b></div><span>' + t(STATUS[a.status]) + '</span></li>' +
-      (a.client_phone ? '<li><div class="li-main"><b>' + t('Телефон') + '</b></div><a class="tel" href="tel:' + esc(a.client_phone) + '">' + esc(a.client_phone) + '</a></li>' : '') +
+      (a.client_phone ? '<li><div class="li-main"><b>' + t('Телефон') + '</b></div><a class="tel" href="tel:' + esc(a.client_phone) + '">' + esc(fmtPhone(a.client_phone)) + '</a></li>' : '') +
       '<li><div class="li-main"><b>' + t('Откуда запись') + '</b></div><span>' + t(a.source === 'site' ? 'Сайт' : a.source === 'bot' ? 'Бот' : 'Ресепшен') + '</span></li>' +
       (a.status === 'done' ? '<li><div class="li-main"><b>' + t('Оплата') + '</b></div><span class="num">' + fmt(a.amount) + ' · ' + t(METHODS.filter((m) => m[0] === a.pay_method)[0] ? METHODS.filter((m) => m[0] === a.pay_method)[0][1] : 'Наличные') + '</span></li>' : '') +
       (a.note && a.status !== 'blocked' ? '<li><div class="li-main"><b>' + t('Комментарий') + '</b></div><span>' + esc(a.note) + '</span></li>' : '') + '</ul>' +
@@ -229,7 +228,7 @@ export function vSheet(S) {
     h = who + fld(t('Услуга'), sel('f-service', svcOpts, f.serviceId || '', 'data-f="serviceId"')) +
       fld(t('Сумма, сум'), '<input id="f-amount" type="text" inputmode="numeric" class="n" data-f="amount" data-kind="money" value="' + esc(f.amount || '') + '" placeholder="0">') +
       fld(t('Способ оплаты'), '<div class="seg three">' + METHODS.map((m) => '<button type="button" data-act="pay-m" data-id="' + m[0] + '" aria-pressed="' + ((f.method || 'cash') === m[0]) + '">' + t(m[1]) + '</button>').join('') + '</div>') +
-      '<div class="row"><button class="btn" data-act="save-pay">' + t('Принять оплату') + '</button></div>';
+      '<div class="row payrow"><button class="btn pay" data-act="save-pay">' + t('Принять оплату') + '</button></div>';
   } else if (sh.k === 'client' || sh.k === 'newclient') {
     const c = sh.k === 'client' ? S.clients.filter((x) => x.id === sh.id)[0] : null;
     h = '<h2>' + (c ? esc(c.name) : t('Новый клиент')) + '</h2>' + field(t('Имя клиента'), 'name', f.name, 'autocomplete="off"') + field(t('Телефон'), 'phone', f.phone, 'inputmode="tel" autocomplete="off" placeholder="+998"') + field(t('Комментарий'), 'note', f.note, 'autocomplete="off"') +

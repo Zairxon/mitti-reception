@@ -20,6 +20,7 @@ import { parseDate, maskDate, openCal, closeCal } from './datepicker.js';
 import { openSelect, closeSelect, askConfirm } from './ui.js';
 import { vLogin, vNoAccess, vNav, vTabs, vView, vSheet, clientList, TABS } from './views.js';
 import { todayTz, isoAt, addDays, monthStart, maskHM, validHM } from './time.js';
+import { fmtPhoneInput, cleanPhone } from './phone.js';
 import { num, fmt } from './util.js';
 
 const $ = (id) => document.getElementById(id);
@@ -46,7 +47,6 @@ $('hero').src = heroUrl;
 /* ---------- мелочи ---------- */
 function toast(msg) { const el = $('toast'); el.textContent = msg; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 3500); }
 const fail = (e) => { console.error(e); toast(e && e.message ? e.message : T('Ошибка')); };
-const cleanPhone = (p) => { const s = String(p || '').replace(/[^\d+]/g, ''); return s; };
 const digits = (p) => String(p || '').replace(/\D/g, '');
 
 /* ---------- отрисовка ---------- */
@@ -68,6 +68,7 @@ function renderSheet() { $('sheet').innerHTML = vSheet(S); }
 function closeSheet() { S.sheet = null; S.form = {}; renderSheet(); }
 
 /* ---------- загрузка данных ---------- */
+function dayChanged() { return loadDay().then(() => { render(); if (S.tab === 'report') loadReport(); }).catch(fail); }
 async function loadDay() { S.appts = await api.loadDay(S.day); try { S.online = await api.loadOnline(); } catch (e) { /* список онлайн-записей необязателен */ } }
 async function refreshDay() {
   if (!S.role) return;
@@ -79,9 +80,10 @@ async function refreshDay() {
 }
 async function loadReport() {
   const r = S.rep;
-  if (r.preset === 'today') { r.from = r.to = todayTz(); }
-  else if (r.preset === 'week') { r.to = todayTz(); r.from = addDays(r.to, -6); }
-  else if (r.preset === 'month') { r.to = todayTz(); r.from = monthStart(r.to); }
+  const lastOf = (d) => addDays(addDays(monthStart(d), 32).slice(0, 8) + '01', -1); // последний день месяца
+  if (r.preset === 'today') { r.from = r.to = S.day; }
+  else if (r.preset === 'week') { r.to = S.day; r.from = addDays(r.to, -6); }
+  else if (r.preset === 'month') { r.from = monthStart(S.day); r.to = S.day.slice(0, 7) === todayTz().slice(0, 7) ? todayTz() : lastOf(S.day); }
   r.rows = null; renderView();
   try { if (r.from && r.to && r.from <= r.to) r.rows = await api.doctorReport(r.from, r.to); else r.rows = []; } catch (e) { fail(e); r.rows = []; }
   renderView();
@@ -217,9 +219,9 @@ document.addEventListener('click', (ev) => {
     case 'signup': authAction('up'); break;
     case 'logout': api.signOut().then(() => { S.user = null; S.role = null; closeSheet(); render(); }); break;
     case 'tab': S.tab = id; try { localStorage.setItem('mitti-tab', id); } catch (e) { /* не страшно */ } render(); window.scrollTo(0, 0); if (id === 'report') loadReport(); if (id === 'set' && S.role === 'owner') loadStaff().then(renderView); break;
-    case 'day-prev': S.day = addDays(S.day, -1); loadDay().then(render).catch(fail); break;
-    case 'day-next': S.day = addDays(S.day, 1); loadDay().then(render).catch(fail); break;
-    case 'day-today': S.day = todayTz(); loadDay().then(render).catch(fail); break;
+    case 'day-prev': S.day = addDays(S.day, -1); dayChanged(); break;
+    case 'day-next': S.day = addDays(S.day, 1); dayChanged(); break;
+    case 'day-today': S.day = todayTz(); dayChanged(); break;
     case 'slot': openNew(b.dataset.doc, b.dataset.t); break;
     case 'appt': S.sheet = { k: 'appt', id }; S.form = {}; renderSheet(); break;
     case 'sheet-close': closeSheet(); break;
@@ -248,7 +250,7 @@ document.addEventListener('click', (ev) => {
       api.updateDoctor(id, { work_days: cur }).then(reloadBase).then(renderView).catch(fail); break;
     }
     case 'doc-reset': api.updateDoctor(id, { work_start: null, work_end: null, work_days: null }).then(reloadBase).then(renderView).catch(fail); break;
-    case 'goto-day': S.day = b.dataset.day; S.tab = 'queue'; loadDay().then(render).catch(fail); window.scrollTo(0, 0); break;
+    case 'goto-day': S.day = b.dataset.day; S.tab = 'queue'; dayChanged(); window.scrollTo(0, 0); break;
     case 'doc-del': askConfirm(T('Удалить врача «{n}»? Это нельзя отменить.', { n: b.dataset.name }), T('Удалить врача'), T('Назад')).then((ok) => { if (ok) api.deleteDoctor(id).then(reloadBase).then(() => { renderView(); toast(T('Врач удалён')); }).catch(fail); }); break;
     case 'add-doctor': api.addDoctor({ name: T('Врач') + ' ' + (S.doctors.length + 1), sort: S.doctors.length + 1, color: COLORS[S.doctors.length % COLORS.length] }).then(reloadBase).then(renderView).catch(fail); break;
     case 'add-svc': api.addService({ name: T('Новая услуга'), price: 0, sort: S.services.length + 1 }).then(reloadBase).then(renderView).catch(fail); break;
@@ -261,8 +263,11 @@ document.addEventListener('click', (ev) => {
   }
 });
 
+document.addEventListener('focusin', (ev) => { const el = ev.target; if (el.dataset && el.dataset.f === 'phone' && !el.value) { el.value = '+998 '; S.form.phone = el.value; } });
+document.addEventListener('focusout', (ev) => { const el = ev.target; if (el.dataset && el.dataset.f === 'phone' && el.value.trim() === '+998') { el.value = ''; S.form.phone = ''; } });
 document.addEventListener('input', (ev) => {
   const el = ev.target, k = el.dataset.kind, f = el.dataset.f;
+  if (f === 'phone') el.value = fmtPhoneInput(el.value, !!(ev.inputType && ev.inputType.indexOf('delete') === 0));
   if (k === 'date') el.value = maskDate(el.value);
   if (k === 'hm') el.value = maskHM(el.value);
   if (k === 'money') { const dg = el.value.replace(/\D/g, ''); el.value = dg ? Number(dg).toLocaleString('ru-RU') : ''; }
@@ -286,7 +291,7 @@ document.addEventListener('change', (ev) => {
   if (k === 'date') {
     const iso = parseDate(el.value);
     if (el.value.trim() && !iso) { toast(T('Введите дату в формате дд.мм.гггг, год от 2000 до 2100')); render(); return; }
-    if (el.id === 'day-input' && iso) { S.day = iso; loadDay().then(render).catch(fail); }
+    if (el.id === 'day-input' && iso) { S.day = iso; dayChanged(); }
     else if (el.id === 'rep-from' || el.id === 'rep-to') { S.rep[el.id === 'rep-from' ? 'from' : 'to'] = iso; S.rep.preset = 'custom'; loadReport(); }
     return;
   }

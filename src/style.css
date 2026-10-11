@@ -442,3 +442,36 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 .slot.off.lunch small{font-size:9.5px;color:var(--muted)}
 .btn.danger{border-color:var(--bad);color:var(--bad)}
 @media (max-width:600px){.qgrid{gap:6px}.slot{min-height:38px}.slot.off{min-height:38px}.qh{margin-bottom:5px}}
+
+/* ===== правки по замечаниям ===== */
+/* навигация по дням: крупная дата на одной линии со стрелками, на всех вкладках */
+.daynav{display:flex;align-items:flex-start;gap:8px}
+.daynav .navbtn{flex:none;width:48px;height:48px;padding:0;font-size:26px;line-height:1;display:grid;place-items:center}
+.daymid{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.daymid .dt{width:100%;max-width:none}
+.daymid .dt input{height:48px;min-height:48px;font-size:17px;font-weight:700;text-align:center}
+.daylabel{font-size:13.5px;font-weight:600;color:var(--ink);text-align:center}
+
+/* оплата: зелёные кнопки, «Принять оплату» с отступом */
+.btn.pay{background:var(--good);border-color:var(--good);color:#fff}
+.btn.ghost.pay{background:transparent;color:var(--good);border-color:var(--good)}
+.btn.pay:hover{filter:brightness(1.08)}
+.row.payrow{margin-top:18px}
+
+/* легенда: одинаковые ячейки, «Закрыто» и «Не работает» своих цветов */
+:root{--blk:#5c6f94;--offc:#c9748a}
+:root[data-theme="dark"]{--blk:#8fa6d6;--offc:#e08ea4}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--blk:#8fa6d6;--offc:#e08ea4}}
+.qlegend{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:6px;margin-bottom:16px}
+.lg{display:flex;align-items:center;justify-content:center;min-height:30px;padding:4px 6px;border-radius:8px;text-align:center;font-size:11.5px;font-weight:500}
+.lg.st-blocked{border-color:var(--blk);color:var(--blk);background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--blk) 16%,transparent),color-mix(in srgb,var(--blk) 16%,transparent) 4px,transparent 4px,transparent 8px)}
+.lg.lg-off{border:1px solid var(--offc);color:var(--offc);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--offc) 18%,transparent),color-mix(in srgb,var(--offc) 18%,transparent) 3px,transparent 3px,transparent 7px)}
+.slot.st-blocked{border-color:var(--blk);background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--blk) 16%,transparent),color-mix(in srgb,var(--blk) 16%,transparent) 5px,transparent 5px,transparent 10px)}
+.slot.off{border:1px solid color-mix(in srgb,var(--offc) 45%,transparent);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--offc) 16%,transparent),color-mix(in srgb,var(--offc) 16%,transparent) 4px,transparent 4px,transparent 8px);opacity:1}
+.slot.off.lunch{opacity:1}
+.qsum{margin-bottom:4px}
+.qgrid{margin-top:4px}
+
+/* кнопка «Удалить врача» поменьше */
+.btn.small{min-height:28px;padding:3px 10px;font-size:11.5px;border-radius:7px}
+@media (max-width:600px){.daynav .navbtn{width:44px;height:46px;font-size:24px}.daymid .dt input{height:46px;min-height:46px;font-size:16px}.daylabel{font-size:13px}.btn.small{min-height:26px;font-size:11px}}
