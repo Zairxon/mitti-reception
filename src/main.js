@@ -80,7 +80,7 @@ function closeSheet() { S.sheet = null; S.form = {}; renderSheet(); }
 
 /* ---------- загрузка данных ---------- */
 function dayChanged() { return loadDay().then(() => { render(); if (S.tab === 'report') loadReport(); }).catch(fail); }
-async function loadDay() { S.appts = await api.loadDay(S.day); try { S.online = await api.loadOnline(); } catch (e) { /* список онлайн-записей необязателен */ } }
+async function loadDay() { await api.expireHolds(); S.appts = await api.loadDay(S.day); try { S.online = await api.loadOnline(); } catch (e) { /* список онлайн-записей необязателен */ } }
 async function refreshDay() {
   if (!S.role) return;
   try {
@@ -243,6 +243,8 @@ document.addEventListener('click', (ev) => {
     case 'cancel': askConfirm(T('Отменить эту запись? Время снова станет свободным.'), T('Отменить запись'), T('Назад')).then((ok) => { if (ok) setStatus(id, 'cancelled'); }); break;
     case 'unblock': api.deleteAppt(id).then(() => { closeSheet(); return refreshDay(); }).catch(fail); break;
     case 'pay': openPay(id); break;
+    case 'rc-open': { const a = (S.online || []).filter((x) => x.id === id)[0]; if (!a) break; S.sheet = { k: 'receipt', id, url: null }; renderSheet(); api.receiptUrl(a.receipt_path).then((u) => { if (S.sheet && S.sheet.id === id) { S.sheet.url = u; renderSheet(); } }); break; }
+    case 'rc-ok': case 'rc-no': { if (!S.sheet || S.sheet.busy) break; S.sheet.busy = true; renderSheet(); api.decideReceipt(id, act === 'rc-ok').then(async () => { toast(T(act === 'rc-ok' ? 'Оплата подтверждена, клиент уведомлён' : 'Чек отклонён, клиент уведомлён')); closeSheet(); await refreshDay(); }).catch((e) => { if (S.sheet) S.sheet.busy = false; renderSheet(); fail(e); }); break; }
     case 'pay-m': S.form.method = id; renderSheet(); break;
     case 'save-pay': savePay(); break;
     case 'walkin': S.sheet = { k: 'walkin' }; S.form = { doctorId: (S.doctors.filter((d) => d.active)[0] || {}).id, name: '', phone: '', serviceId: '', amount: '', method: 'cash' }; renderSheet(); break;

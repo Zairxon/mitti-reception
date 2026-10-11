@@ -62,6 +62,15 @@ export async function doctorReport(from, to) { return ok(await sb.rpc('doctor_re
 export async function saveSettings(patch) { return ok(await sb.from('clinic_settings').update(patch).eq('id', 1).select().single()); }
 export async function addDoctor(row) { return ok(await sb.from('doctors').insert(row).select().single()); }
 export async function deleteDoctor(id) { ok(await sb.from('doctors').delete().eq('id', id)); }
+// Предоплата: освобождаем просроченные брони, смотрим чек, решаем подтвердить или отклонить
+export async function expireHolds() { try { await sb.rpc('expire_holds'); } catch (e) { /* не страшно */ } }
+export async function receiptUrl(path) { const r = await sb.storage.from('receipts').createSignedUrl(path, 900); return r.error ? '' : r.data.signedUrl; }
+export async function decideReceipt(id, okFlag) {
+  const { data } = await sb.auth.getSession(); const tok = data.session && data.session.access_token;
+  const res = await fetch(SUPABASE_URL + '/functions/v1/telegram-bot?op=decide', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + tok }, body: JSON.stringify({ id, ok: okFlag }) });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error === 'already' ? t('Уже обработано другим сотрудником') : t('Не удалось сохранить решение'));
+}
 export async function loadOnline() {
   return ok(await sb.from('appointments').select('*').in('source', ['site', 'bot']).eq('status', 'booked').gte('starts_at', new Date().toISOString()).order('starts_at').limit(60));
 }

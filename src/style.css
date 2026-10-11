@@ -484,3 +484,9 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 .langmenu button{font:inherit;text-align:left;padding:10px 14px;border:0;background:none;color:var(--ink);cursor:pointer}
 .langmenu button[aria-pressed="true"]{background:var(--soft);font-weight:600;color:var(--accent)}
 .row.gaptop{margin-top:16px}
+
+/* ===== предоплата: чеки на проверке ===== */
+.rcpt{border:1.5px solid var(--warn);border-radius:14px;padding:12px 14px;background:var(--soft)}
+.rcpt h2{display:flex;align-items:center;gap:8px}
+.rcimg{display:block;width:100%;max-height:60vh;object-fit:contain;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.chip.bad{color:var(--bad)}

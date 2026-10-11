@@ -207,6 +207,13 @@ export function vSheet(S) {
       '<div id="sug" class="sug"></div>' +
       fld(t('Услуга'), sel('f-service', svcOpts, f.serviceId || '', 'data-f="serviceId"')) + field(t('Комментарий'), 'note', f.note, 'autocomplete="off"') +
       '<div class="row"><button class="btn" data-act="save-new">' + t('Записать') + '</button><button class="btn ghost" data-act="save-block">' + t('Закрыть время') + '</button></div>';
+  } else if (sh.k === 'receipt') {
+    const a = (S.online || []).filter((x) => x.id === sh.id)[0]; if (!a) return '';
+    h = '<h2>🧾 ' + t('Чек на проверку') + '</h2><ul class="list"><li><div class="li-main"><b>' + esc(a.client_name || '—') + '</b><span class="small muted">' + esc(fmtPhone(a.client_phone || '')) + '</span></div></li>' +
+      '<li><div class="li-main"><b>' + esc(dayLabel(hhmmDate(a.starts_at))) + ' · ' + hhmmOf(a.starts_at) + '</b><span class="small muted">' + esc(docName(S, a.doctor_id)) + '</span></div></li>' +
+      '<li><div class="li-main"><b>' + t('К оплате') + '</b></div><span class="num">' + fmt(a.deposit) + ' ' + t('сум') + '</span></li></ul>' +
+      (sh.url ? '<a href="' + esc(sh.url) + '" target="_blank" rel="noopener"><img class="rcimg" src="' + esc(sh.url) + '" alt="' + esc(t('Чек')) + '"></a>' : '<p class="empty">' + t(sh.url === '' ? 'Не удалось загрузить фото чека' : 'Загружаю фото…') + '</p>') +
+      '<div class="row gaptop"><button class="btn pay" data-act="rc-ok" data-id="' + esc(a.id) + '"' + (sh.busy ? ' disabled' : '') + '>' + t('Подтвердить оплату') + '</button><button class="btn ghost danger" data-act="rc-no" data-id="' + esc(a.id) + '"' + (sh.busy ? ' disabled' : '') + '>' + t('Отклонить') + '</button></div>';
   } else if (sh.k === 'appt') {
     const a = S.appts.filter((x) => x.id === sh.id)[0]; if (!a) return '';
     const btns = a.status === 'booked' ? '<button class="btn" data-act="came" data-id="' + esc(a.id) + '">' + t('Пришёл') + '</button><button class="btn pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Оплата') + '</button><button class="btn ghost" data-act="noshow" data-id="' + esc(a.id) + '">' + t('Не пришёл') + '</button><button class="btn ghost" data-act="cancel" data-id="' + esc(a.id) + '">' + t('Отменить запись') + '</button>'
@@ -244,17 +251,28 @@ export function vSheet(S) {
 }
 function hhmmDate(iso) { return new Date(Date.parse(iso) + 5 * 3600 * 1000).toISOString().slice(0, 10); }
 
+const PAYCHIP = { pending: ['ждёт оплату', 'warn'], review: ['чек на проверке', 'warn'], rejected: ['чек не принят', 'bad'], paid: ['оплачено вперёд', 'ok'] };
+const payChip = (a) => { const c = PAYCHIP[a.pay_status]; return c ? '<span class="chip ' + c[1] + '">' + t(c[0]) + (a.pay_status === 'paid' ? ' ' + fmt(a.deposit) : a.pay_status === 'pending' && a.hold_until ? ' ' + t('до {h}', { h: hhmmOf(a.hold_until) }) : '') + '</span>' : ''; };
+// Чеки, которые клиенты уже отправили и ждут решения сотрудника
+function receiptsBlock(S) {
+  const list = (S.online || []).filter((a) => a.pay_status === 'review'); if (!list.length) return '';
+  return '<section class="rcpt"><h2>🧾 ' + t('Чеки на проверке') + ' <span class="chip warn">' + list.length + '</span></h2><ul class="list">' + list.map((a) => {
+    const day = hhmmDate(a.starts_at);
+    return '<li><div class="li-main"><b>' + esc(a.client_name || '—') + '</b><span class="small muted">' + esc(dayLabel(day)) + ' · ' + hhmmOf(a.starts_at) + ' · ' + esc(docName(S, a.doctor_id)) + ' · ' + fmt(a.deposit) + ' ' + t('сум') + '</span></div><button class="btn" data-act="rc-open" data-id="' + esc(a.id) + '">' + t('Проверить чек') + '</button></li>';
+  }).join('') + '</ul></section>';
+}
+
 // Записи, сделанные клиентами на сайте и в боте (ближайшие), независимо от выбранного дня
 function onlineList(S) {
   const list = S.online || [];
   return '<section><h2>' + t('Онлайн-записи (сайт и бот)') + '</h2>' + (list.length ? '<ul class="list">' + list.slice(0, 30).map((a) => {
     const day = new Date(Date.parse(a.starts_at) + 5 * 3600e3).toISOString().slice(0, 10);
-    return '<li><div class="li-main"><b>' + esc(a.client_name || '—') + '</b><span class="small muted">' + esc(dayLabel(day)) + ' · ' + hhmmOf(a.starts_at) + ' · ' + esc(docName(S, a.doctor_id)) + ' · ' + t(a.source === 'bot' ? 'бот' : 'сайт') + '</span></div><button class="btn ghost" data-act="goto-day" data-day="' + day + '">' + t('Открыть день') + '</button></li>';
+    return '<li><div class="li-main"><b>' + esc(a.client_name || '—') + '</b><span class="small muted">' + esc(dayLabel(day)) + ' · ' + hhmmOf(a.starts_at) + ' · ' + esc(docName(S, a.doctor_id)) + ' · ' + t(a.source === 'bot' ? 'бот' : 'сайт') + '</span>' + payChip(a) + '</div><button class="btn ghost" data-act="goto-day" data-day="' + day + '">' + t('Открыть день') + '</button></li>';
   }).join('') + '</ul>' : '<p class="empty">' + t('Нет онлайн-записей.') + '</p>') + '</section>';
 }
 
 export function vView(S) {
   const tab = S.tab;
-  return tab === 'queue' ? '<section><h2>' + t('Очередь на приём') + '</h2>' + queue(S) + '</section>' + onlineList(S) : tab === 'clients' ? clients(S) : tab === 'cash' ? cash(S) : tab === 'report' ? report(S) : settings(S);
+  return tab === 'queue' ? receiptsBlock(S) + '<section><h2>' + t('Очередь на приём') + '</h2>' + queue(S) + '</section>' + onlineList(S) : tab === 'clients' ? clients(S) : tab === 'cash' ? cash(S) : tab === 'report' ? report(S) : settings(S);
 }
 export { addDays };
