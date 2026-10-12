@@ -101,7 +101,7 @@ function openTab(id) {
 
 /* ---------- загрузка данных ---------- */
 function dayChanged() { return loadDay().then(() => { render(); if (S.tab === 'report') loadReport(); }).catch(fail); }
-async function loadDay() { await api.expireHolds(); S.appts = await api.loadDay(S.day); try { S.online = await api.loadOnline(); } catch (e) { /* список онлайн-записей необязателен */ } }
+async function loadDay() { await api.expireHolds(); S.appts = await api.loadDay(S.day); try { S.online = await api.loadOnline(); } catch (e) { /* список онлайн-записей необязателен */ } try { S.refundReqs = await api.loadRefundReqs(); } catch (e) { S.refundReqs = []; } }
 async function refreshDay() {
   if (!S.role) return;
   try {
@@ -150,7 +150,7 @@ function authAction(kind) {
 
 /* ---------- запись, приход, оплата ---------- */
 const slotMs = () => S.settings.slot_minutes * 60000;
-const apptById = (id) => S.appts.filter((a) => a.id === id)[0];
+const apptById = (id) => S.appts.filter((a) => a.id === id)[0] || (S.refundReqs || []).filter((a) => a.id === id)[0];
 
 async function ensureClient(name, phone, clientId) {
   if (clientId) return clientId;
@@ -161,7 +161,7 @@ async function ensureClient(name, phone, clientId) {
   S.clients.unshift(c);
   return c.id;
 }
-function openNew(doctor, tm) { S.sheet = { k: 'new', doctor, t: tm }; S.form = { name: '', phone: '', note: '', serviceId: '', clientId: '' }; renderSheet(); }
+function openNew(doctor, tm) { S.sheet = { k: 'new', doctor, t: tm }; S.form = { name: '', phone: '', note: '', serviceId: '', clientId: '', channel: 'call' }; renderSheet(); }
 function openPay(id) {
   const a = apptById(id); if (!a) return;
   const svc = S.services.filter((s) => s.id === a.service_id)[0];
@@ -176,7 +176,7 @@ async function saveNew() {
     const phone = cleanPhone(f.phone);
     const cid = await ensureClient(name, phone, f.clientId);
     const st = isoAt(S.day, sh.t);
-    await api.addAppt({ doctor_id: sh.doctor, starts_at: st, ends_at: new Date(Date.parse(st) + slotMs()).toISOString(), client_id: cid, client_name: name, client_phone: phone || null, service_id: f.serviceId || null, note: (f.note || '').trim() || null, source: 'reception', status: 'booked' });
+    await api.addAppt({ doctor_id: sh.doctor, starts_at: st, ends_at: new Date(Date.parse(st) + slotMs()).toISOString(), client_id: cid, client_name: name, client_phone: phone || null, service_id: f.serviceId || null, note: (f.note || '').trim() || null, source: 'reception', channel: f.channel === 'walkin' ? 'walkin' : 'call', status: 'booked' });
     closeSheet(); toast(T('Записано')); await refreshDay();
   } catch (e) { fail(e); closeSheet(); await refreshDay(); }
 }
@@ -202,7 +202,7 @@ async function savePay() {
       let done = false, last = null;
       for (let k = 0; k < 16 && !done; k++) { // ближайшее свободное время у выбранного врача
         const st = new Date(base + k * slotMs()).toISOString();
-        try { await api.addAppt({ doctor_id: f.doctorId, starts_at: st, ends_at: new Date(base + (k + 1) * slotMs()).toISOString(), client_id: cid, client_name: name, client_phone: phone || null, source: 'reception', status: 'done', ...payload }); done = true; } catch (e) { last = e; }
+        try { await api.addAppt({ doctor_id: f.doctorId, starts_at: st, ends_at: new Date(base + (k + 1) * slotMs()).toISOString(), client_id: cid, client_name: name, client_phone: phone || null, source: 'reception', channel: 'walkin', status: 'done', ...payload }); done = true; } catch (e) { last = e; }
       }
       if (!done) throw last || new Error(T('Это время уже занято'));
     } else {
@@ -284,11 +284,13 @@ document.addEventListener('click', (ev) => {
     }
     case 'reopen': api.updateAppt(id, { finished_at: null }).then(async () => { closeSheet(); await refreshDay(); }).catch(fail); break;
     case 'doc-set': { const d = S.doctors.filter((x) => x.id === id)[0], v = b.dataset.v === '1'; if (d && d.active !== v) api.updateDoctor(id, { active: v }).then(reloadBase).then(renderView).catch(fail); break; }
-    case 'noshow': setStatus(id, 'no_show'); break;
+    case 'noshow': { const a0 = apptById(id); if (a0 && a0.pay_status === 'paid') askConfirm(T('Клиент оплатил вперёд. Ему придёт сообщение: он сможет выбрать другое время без оплаты или запросить возврат денег. Отметить «Не пришёл»?'), T('Не пришёл'), T('Назад')).then((ok) => { if (ok) setStatus(id, 'no_show'); }); else setStatus(id, 'no_show'); break; }
+    case 'rf-open': { const a1 = (S.refundReqs || []).filter((x) => x.id === id)[0]; if (!a1) break; S.sheet = { k: 'refund', id }; S.form = { amount: fmt(+a1.deposit || 0), method: 'card', note: 'Клиент не пришёл, просит возврат', cancel: false }; renderSheet(); break; }
     case 'cancel': askConfirm((apptById(id) || {}).pay_status === 'paid' ? T('Отменить эту запись? Клиент уже внёс предоплату {n} сум: верните её или перенесите запись.', { n: fmt((apptById(id) || {}).deposit) }) : T('Отменить эту запись? Время снова станет свободным.'), T('Отменить запись'), T('Назад')).then((ok) => { if (ok) setStatus(id, 'cancelled'); }); break;
     case 'unblock': api.deleteAppt(id).then(() => { closeSheet(); return refreshDay(); }).catch(fail); break;
     case 'pay': openPay(id); break;
     case 'refund': { const a = apptById(id); if (!a) break; const sum = a.status === 'done' ? +a.amount || 0 : +a.deposit || 0; S.sheet = { k: 'refund', id }; S.form = { amount: fmt(sum), method: a.status === 'done' ? (a.pay_method || 'cash') : 'card', note: '', cancel: (a.status === 'booked' || a.status === 'came') && !a.finished_at }; renderSheet(); break; }
+    case 'ch-set': S.form.channel = id; renderSheet(); break;
     case 'rf-cancel': S.form.cancel = !S.form.cancel; renderSheet(); break;
     case 'save-refund': saveRefund(); break;
     case 'pp-waive': askConfirm(T('Клиент придёт без предоплаты и оплатит на месте? Бронь перестанет ждать оплату.'), T('Принять без предоплаты'), T('Назад')).then((ok) => { if (ok) api.updateAppt(id, { pay_status: 'none', hold_until: null }).then(async () => { toast(T('Готово')); await refreshDay(); }).catch(fail); }); break;

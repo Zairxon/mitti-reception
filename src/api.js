@@ -104,3 +104,6 @@ export function subscribe(cb) {
   return sb.channel('appts-live').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, cb).subscribe();
 }
 export { addDays };
+
+// Клиенты, которые не пришли после оплаты и просят вернуть предоплату
+export async function loadRefundReqs() { return ok(await sb.from('appointments').select('*').eq('status', 'no_show').not('refund_requested_at', 'is', null).eq('refund_amount', 0).order('refund_requested_at')); }

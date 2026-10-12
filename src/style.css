@@ -556,7 +556,7 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 .ksec.k-wait{--k:#e8b923}.ksec.k-exp{--k:#f2994a}.ksec.k-paid{--k:#43b36b}.ksec.k-fin{--k:#3d9ad1}
 
 /* ===== окошко оповещений ===== */
-#alerts{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top) + 8px);z-index:90;display:flex;flex-direction:column;gap:8px;padding:0 12px;pointer-events:none}
+#alerts{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top) + 8px);z-index:35;display:flex;flex-direction:column;gap:8px;padding:0 12px;pointer-events:none}
 .al{pointer-events:auto;display:flex;align-items:center;gap:12px;max-width:560px;width:100%;margin:0 auto;padding:12px 14px;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 10px 30px rgba(0,0,0,.28);border:2px solid var(--k)}
 .al-rc{--k:#e8924a;animation:alpulse 1.2s ease-in-out infinite}
 .al-soon{--k:#9b7fe0}
@@ -596,3 +596,5 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 /* галочка и крест в настройках: меньше соседней ячейки */
 .yn{gap:4px!important}
 .yn button{width:28px!important;height:26px!important;border-radius:8px!important;font-size:13px!important;line-height:1;padding:0!important}
+
+.al-rf{--k:#e5534b}

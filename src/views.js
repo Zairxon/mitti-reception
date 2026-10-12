@@ -220,6 +220,7 @@ export function vSheet(S) {
       field(t('Имя клиента'), 'name', f.name, 'autocomplete="off" id="f-name"') + field(t('Телефон'), 'phone', f.phone, 'inputmode="tel" autocomplete="off" placeholder="+998" id="f-phone"') +
       '<div id="sug" class="sug"></div>' +
       fld(t('Услуга'), sel('f-service', svcOpts, f.serviceId || '', 'data-f="serviceId"')) + field(t('Комментарий'), 'note', f.note, 'autocomplete="off"') +
+      fld(t('Откуда клиент'), '<div class="seg">' + [['call', 'По звонку'], ['walkin', 'Живая очередь']].map((x) => '<button type="button" data-act="ch-set" data-id="' + x[0] + '" aria-pressed="' + ((f.channel || 'call') === x[0]) + '">' + t(x[1]) + '</button>').join('') + '</div>') +
       '<div class="row"><button class="btn" data-act="save-new">' + t('Записать') + '</button><button class="btn ghost" data-act="save-block">' + t('Закрыть время') + '</button></div>';
   } else if (sh.k === 'receipt') {
     const a = anyAppt(S, sh.id); if (!a) return '';
@@ -253,7 +254,7 @@ export function vSheet(S) {
       (a.status === 'booked' && a.pay_status === 'paid' ? '<p class="note">' + t('Предоплата подтверждена. Она входит в стоимость услуги: при оплате на приёме укажите полную сумму.') + '</p>' : '') +
       '<div class="row">' + (a.pay_status === 'review' ? '<button class="btn pay" data-act="rc-open" data-id="' + esc(a.id) + '">' + t('Проверить чек') + '</button>' : '') + ((a.pay_status === 'pending' || a.pay_status === 'rejected') && a.status === 'booked' ? '<button class="btn ghost" data-act="pp-waive" data-id="' + esc(a.id) + '">' + t('Принять без предоплаты') + '</button>' : '') + btns + '</div>';
   } else if (sh.k === 'refund') {
-    const a = S.appts.filter((x) => x.id === sh.id)[0]; if (!a) return '';
+    const a = anyAppt(S, sh.id); if (!a) return '';
     const paidSum = a.status === 'done' ? +a.amount || 0 : +a.deposit || 0, canCancel = (a.status === 'booked' || a.status === 'came') && !a.finished_at;
     h = '<h2>↩ ' + t('Вернуть деньги') + '</h2><p class="small muted">' + esc(a.client_name || '') + ' · ' + hhmmOf(a.starts_at) + ' · ' + t('Оплачено: {n} сум', { n: fmt(paidSum) }) + '</p>' +
       fld(t('Сумма возврата, сум'), '<input id="f-amount" type="text" inputmode="numeric" class="n" data-f="amount" data-kind="money" value="' + esc(f.amount || '') + '" placeholder="0">') +
@@ -283,7 +284,7 @@ export function vSheet(S) {
 }
 // Предоплата в клетке очереди: чем бронь отличается от обычной (класс, подпись)
 const ppTag = (a) => a.status !== 'booked' ? null : a.pay_status === 'paid' ? ['pp-paid', '💳 ' + t('предоплата')] : a.pay_status === 'review' ? ['pp-wait', '🧾 ' + t('чек')] : a.pay_status === 'pending' ? ['pp-wait', '⏳ ' + t('ждёт оплату')] : a.pay_status === 'rejected' ? ['pp-wait', '⚠ ' + t('чек не принят')] : null;
-const anyAppt = (S, id) => (S.online || []).concat(S.appts || []).filter((x) => x.id === id)[0];
+const anyAppt = (S, id) => (S.online || []).concat(S.appts || [], S.refundReqs || []).filter((x) => x.id === id)[0];
 const bsvcName = (S, id) => { const x = (S.bsvc || []).filter((b) => b.id === id)[0]; return x ? (getLang() === 'ru' ? x.name_ru : (x.name_uz || x.name_ru)) : ''; };
 function hhmmDate(iso) { return new Date(Date.parse(iso) + 5 * 3600 * 1000).toISOString().slice(0, 10); }
 

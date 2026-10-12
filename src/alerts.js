@@ -29,7 +29,8 @@ export function pending(S) {
   const now = Date.now(), seen = {};
   const rc = (S.online || []).concat(S.appts || []).filter((a) => a.pay_status === 'review' && a.status === 'booked' && !seen[a.id] && (seen[a.id] = 1));
   const soon = (S.appts || []).filter((a) => a.status !== 'blocked' && a.client_name !== undefined && (a.status === 'booked' || a.status === 'came') && !a.room_at && !a.finished_at && a.pay_status !== 'review' && Date.parse(a.starts_at) - now <= SOON_MS && Date.parse(a.ends_at) > now);
-  return { rc, soon };
+  const refund = (S.refundReqs || []).filter((a) => a.status === 'no_show' && a.refund_requested_at && !(+a.refund_amount > 0));
+  return { rc, soon, refund };
 }
 
 export function checkAlerts(S) {
@@ -38,12 +39,13 @@ export function checkAlerts(S) {
   const p = pending(S);
   let fresh = null;
   p.rc.forEach((a) => { if (!known.receipt.has(a.id)) { known.receipt.add(a.id); if (!first) fresh = 'receipt'; } });
+  p.refund.forEach((a) => { const k = 'rf:' + a.id; if (!known.soon.has(k)) { known.soon.add(k); if (!first) fresh = 'receipt'; } });
   p.soon.forEach((a) => { const k = a.id + ':' + a.status; if (!known.soon.has(k)) { known.soon.add(k); if (!fresh) fresh = 'soon'; } });
   first = false;
   const now = Date.now();
-  if (fresh) { beep(fresh); lastRepeat = now; } else if (p.rc.length && now - lastRepeat > 30000) { beep('receipt'); lastRepeat = now; }
+  if (fresh) { beep(fresh); lastRepeat = now; } else if ((p.rc.length || p.refund.length) && now - lastRepeat > 30000) { beep('receipt'); lastRepeat = now; }
   const docs = (S.doctors || []);
   const dn = (id) => (docs.filter((d) => d.id === id)[0] || {}).name || '';
-  el.innerHTML = p.rc.map((a) => '<div class="al al-rc" role="alert"><span class="al-ic" aria-hidden="true">🧾</span><div class="al-tx"><b>' + t('Клиент прислал чек') + '</b><span>' + esc(a.client_name || '—') + ' · ' + hhmmOf(a.starts_at) + '</span></div><button class="btn" data-act="rc-open" data-id="' + esc(a.id) + '">' + t('Проверить') + '</button></div>').join('') +
+  el.innerHTML = p.refund.map((a) => '<div class="al al-rf" role="alert"><span class="al-ic" aria-hidden="true">💸</span><div class="al-tx"><b>' + t('Клиент просит вернуть деньги') + '</b><span>' + esc(a.client_name || '—') + ' · ' + String(Math.round(+a.deposit || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ' + t('сум') + '</span></div><button class="btn" data-act="rf-open" data-id="' + esc(a.id) + '">' + t('Вернуть') + '</button></div>').join('') + p.rc.map((a) => '<div class="al al-rc" role="alert"><span class="al-ic" aria-hidden="true">🧾</span><div class="al-tx"><b>' + t('Клиент прислал чек') + '</b><span>' + esc(a.client_name || '—') + ' · ' + hhmmOf(a.starts_at) + '</span></div><button class="btn" data-act="rc-open" data-id="' + esc(a.id) + '">' + t('Проверить') + '</button></div>').join('') +
     p.soon.map((a) => '<div class="al al-soon" role="alert"><span class="al-ic" aria-hidden="true">⏰</span><div class="al-tx"><b>' + t('Скоро приём') + ' · ' + hhmmOf(a.starts_at) + '</b><span>' + esc(a.client_name || '—') + (dn(a.doctor_id) ? ' · ' + esc(dn(a.doctor_id)) : '') + '</span></div><button class="btn" data-act="al-go" data-id="' + esc(a.id) + '">' + t(a.status === 'came' ? 'Вошёл к врачу' : 'Открыть') + '</button></div>').join('');
 }
