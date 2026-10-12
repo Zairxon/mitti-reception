@@ -598,3 +598,8 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 .yn button{width:28px!important;height:26px!important;border-radius:8px!important;font-size:13px!important;line-height:1;padding:0!important}
 
 .al-rf{--k:#e5534b}
+/* лёгкая анимация оповещения: двигается только значок (без перерисовки теней всего окна) */
+.al-rc{animation:none!important}
+.al-rc .al-ic,.al-rf .al-ic{animation:alring 1.4s ease-in-out infinite;transform-origin:50% 20%;will-change:transform}
+@keyframes alring{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(14deg)}20%{transform:rotate(-12deg)}30%{transform:rotate(9deg)}40%{transform:rotate(-6deg)}}
+@media (prefers-reduced-motion:reduce){.al-rc .al-ic,.al-rf .al-ic{animation:none}}

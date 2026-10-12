@@ -101,7 +101,13 @@ function openTab(id) {
 
 /* ---------- загрузка данных ---------- */
 function dayChanged() { return loadDay().then(() => { render(); if (S.tab === 'report') loadReport(); }).catch(fail); }
-async function loadDay() { await api.expireHolds(); S.appts = await api.loadDay(S.day); try { S.online = await api.loadOnline(); } catch (e) { /* список онлайн-записей необязателен */ } try { S.refundReqs = await api.loadRefundReqs(); } catch (e) { S.refundReqs = []; } }
+// Загрузка дня: все запросы идут одновременно (раньше шли по очереди и экран отставал); снятие просроченных броней не чаще раза в 30 секунд — это и так делает база каждую минуту
+let lastExpire = 0;
+async function loadDay() {
+  const now = Date.now(), exp = now - lastExpire > 30000 ? (lastExpire = now, api.expireHolds()) : Promise.resolve();
+  const [appts, online, refunds] = await Promise.all([exp.then(() => api.loadDay(S.day)), api.loadOnline().catch(() => S.online), api.loadRefundReqs().catch(() => [])]);
+  S.appts = appts; if (online) S.online = online; S.refundReqs = refunds;
+}
 async function refreshDay() {
   if (!S.role) return;
   try {
