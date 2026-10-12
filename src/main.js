@@ -297,8 +297,10 @@ document.addEventListener('click', (ev) => {
     case 'add-doctor': api.addDoctor({ name: T('Врач') + ' ' + (S.doctors.length + 1), sort: S.doctors.length + 1, color: COLORS[S.doctors.length % COLORS.length] }).then(reloadBase).then(renderView).catch(fail); break;
     case 'add-svc': api.addService({ name: T('Новая услуга'), price: 0, sort: S.services.length + 1 }).then(reloadBase).then(renderView).catch(fail); break;
     case 'del-svc': api.deleteService(id).then(reloadBase).then(renderView).catch(fail); break;
-    case 'add-staff': { const e = (S.newStaff || '').trim(); if (!e) { toast(T('Введите почту')); break; } api.addStaff(e).then(() => { S.newStaff = ''; return loadStaff(); }).then(renderView).then(() => toast(T('Доступ открыт'))).catch(fail); break; }
-    case 'del-staff': askConfirm(T('Закрыть доступ этому сотруднику?'), T('Закрыть доступ'), T('Назад')).then((ok) => { if (ok) api.removeStaff(id).then(loadStaff).then(renderView).catch(fail); }); break;
+    case 'invite': { const nm = (S.invite.name || '').trim(); if (nm.length < 2) { toast(T('Введите имя сотрудника')); break; } api.inviteStaff(nm).then((r) => { S.invite = { name: '', link: r.link }; return loadStaff(); }).then(renderView).catch(fail); break; }
+    case 'staff-link': api.relinkStaff(id).then((r) => { S.invite = { name: '', link: r.link }; renderView(); }).catch(fail); break;
+    case 'copy-link': { try { navigator.clipboard.writeText(S.invite.link).then(() => toast(T('Скопировано'))); } catch (e) { const i = document.querySelector('[data-select]'); if (i) { i.select(); } } break; }
+    case 'del-staff': askConfirm(T('Закрыть доступ этому сотруднику? Он сразу выйдет из приложения.'), T('Закрыть доступ'), T('Назад')).then((ok) => { if (ok) api.revokeStaff(id).then(loadStaff).then(renderView).catch(fail); }); break;
     case 'lang-set': setLang(id); $('langmenu').hidden = true; render(); break;
     case 'lang-menu': $('langmenu').hidden = !$('langmenu').hidden; break;
     case 'theme-flip': { const nx = effDark() ? 'light' : 'dark'; try { localStorage.setItem('uzi-theme', nx); } catch (e) { /* не страшно */ } applyTheme(nx); render(); break; }

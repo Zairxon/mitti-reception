@@ -120,18 +120,24 @@ function clients(S) {
 /* ---------- касса ---------- */
 function cash(S) {
   const day = S.appts.filter((a) => a.status !== 'cancelled' && a.status !== 'no_show' && a.status !== 'blocked');
-  const waiting = day.filter((a) => a.status === 'came'), expected = day.filter((a) => a.status === 'booked'), paid = day.filter((a) => a.status === 'done');
-  const by = { cash: 0, card: 0, transfer: 0 }; let total = 0;
-  paid.forEach((a) => { total += +a.amount; if (by[a.pay_method] !== undefined) by[a.pay_method] += +a.amount; });
-  const row = (a, btns) => '<li><div class="li-main"><b>' + esc(a.client_name || '—') + '</b><span class="small muted">' + hhmmOf(a.starts_at) + ' · ' + esc(docName(S, a.doctor_id)) + (a.status === 'done' ? ' · ' + t(METHODS.filter((m) => m[0] === a.pay_method)[0] ? METHODS.filter((m) => m[0] === a.pay_method)[0][1] : 'Наличные') : '') + '</span></div>' +
+  const paidA = (a) => a.status === 'done' || fullPre(S, a);
+  const expected = day.filter((a) => a.status === 'booked'), waiting = day.filter((a) => a.status === 'came' && !paidA(a));
+  const paidNow = day.filter((a) => a.status !== 'booked' && paidA(a) && !a.finished_at), finished = day.filter((a) => a.finished_at && paidA(a));
+  const done = day.filter((a) => a.status === 'done'), by = { cash: 0, card: 0, transfer: 0 }; let total = 0;
+  done.forEach((a) => { total += +a.amount; if (by[a.pay_method] !== undefined) by[a.pay_method] += +a.amount; });
+  const mname = (a) => (METHODS.filter((m) => m[0] === a.pay_method)[0] || ['', 'Наличные'])[1];
+  const B = (act, label, cls, a) => '<button class="btn ' + (cls || '') + '" data-act="' + act + '" data-id="' + esc(a.id) + '">' + t(label) + '</button>';
+  const row = (a, btns) => '<li><div class="li-main"><b>' + esc(a.client_name || '—') + '</b><span class="small muted">' + hhmmOf(a.starts_at) + ' · ' + esc(docName(S, a.doctor_id)) + (a.status === 'done' ? ' · ' + t(mname(a)) : fullPre(S, a) ? ' · 💳 ' + t('оплачено вперёд') : '') + (a.room_at && !a.finished_at ? ' · 🩺 ' + t('у врача') : '') + '</span></div>' +
     (a.status === 'done' ? '<span class="num pos">' + fmt(a.amount) + '</span>' : '') + btns + '</li>';
+  const sec = (cls, title, list, make, empty) => '<section class="ksec ' + cls + '"><h2><i class="kdot"></i>' + t(title) + ' <span class="kcnt">' + list.length + '</span></h2>' + (list.length ? '<ul class="list">' + list.map(make).join('') + '</ul>' : '<p class="empty">' + t(empty) + '</p>') + '</section>';
   return '<section><h2>' + t('Касса за день') + '</h2>' +
-    '<div class="kpis"><div class="kpi"><span>' + t('Принято клиентов') + '</span><b>' + paid.length + '</b></div><div class="kpi"><span>' + t('Сумма') + '</span><b>' + fmt(total) + '</b></div>' +
+    '<div class="kpis"><div class="kpi"><span>' + t('Принято клиентов') + '</span><b>' + finished.length + '</b></div><div class="kpi"><span>' + t('Сумма') + '</span><b>' + fmt(total) + '</b></div>' +
     '<div class="kpi"><span>' + t('Наличные') + '</span><b>' + fmt(by.cash) + '</b></div><div class="kpi"><span>' + t('Карта и перевод') + '</span><b>' + fmt(by.card + by.transfer) + '</b></div></div>' +
-    '<div class="row"><button class="btn" data-act="walkin">' + t('Приём без записи') + '</button></div></section>' +
-    '<section><h2>' + t('Ждут оплаты') + '</h2>' + (waiting.length ? '<ul class="list">' + waiting.map((a) => row(a, '<button class="btn pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Оплата') + '</button>')).join('') + '</ul>' : '<p class="empty">' + t('Никто не ждёт оплаты.') + '</p>') + '</section>' +
-    '<section><h2>' + t('Записаны, ещё не пришли') + '</h2>' + (expected.length ? '<ul class="list">' + expected.map((a) => row(a, '<button class="btn ghost" data-act="came" data-id="' + esc(a.id) + '">' + t('Пришёл') + '</button>')).join('') + '</ul>' : '<p class="empty">' + t('Нет записанных.') + '</p>') + '</section>' +
-    '<section><h2>' + t('Оплачено') + '</h2>' + (paid.length ? '<ul class="list">' + paid.map((a) => row(a, '<button class="btn ghost pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Изменить') + '</button>')).join('') + '</ul>' : '<p class="empty">' + t('Оплат пока нет.') + '</p>') + '</section>';
+    '<div class="row gaptop"><button class="btn" data-act="walkin">' + t('Приём без записи') + '</button></div></section>' +
+    sec('k-wait', 'Ждут оплаты', waiting, (a) => row(a, (a.room_at ? '' : B('room', 'Вошёл к врачу', 'ghost', a)) + B('pay', 'Оплата', 'pay', a)), 'Никто не ждёт оплаты.') +
+    sec('k-exp', 'Записаны, ещё не пришли', expected, (a) => row(a, B('came', 'Пришёл', 'ghost', a)), 'Нет записанных.') +
+    sec('k-paid', 'Оплачено, ждут врача', paidNow, (a) => row(a, (a.room_at ? '' : B('room', 'Вошёл к врачу', 'ghost', a)) + B('finish', 'Приём завершён', '', a)), 'Оплаченных без приёма нет.') +
+    sec('k-fin', 'Прошли приём', finished, (a) => row(a, B('reopen', 'Вернуть', 'ghost', a)), 'Пока никто не прошёл.');
 }
 
 /* ---------- сводка по врачам ---------- */
@@ -193,11 +199,13 @@ function settings(S) {
   const services = '<section><h2>' + t('Услуги и цены') + '</h2><div class="panel">' + (S.services.length ? S.services.map((s) =>
     '<div class="rowline"><input type="text" data-svc-name="' + esc(s.id) + '" value="' + esc(s.name) + '"><input type="text" inputmode="numeric" class="n" data-svc-price="' + esc(s.id) + '" data-kind="money" value="' + (s.price ? fmt(s.price) : '') + '" placeholder="0"><button class="btn del" data-act="del-svc" data-id="' + esc(s.id) + '" aria-label="' + esc(t('Удалить')) + '">×</button></div>').join('') : '<p class="empty">' + t('Услуг пока нет. Добавьте виды УЗИ и цены, чтобы кассир выбирал их в один клик.') + '</p>') +
     '<div class="row gaptop"><button class="btn ghost" data-act="add-svc">' + t('Добавить услугу') + '</button></div></div></section>';
+  const inv = S.invite || { name: '', link: '' };
   const staff = '<section><h2>' + t('Сотрудники') + '</h2><div class="panel">' + (S.staff || []).map((u) =>
-    '<div class="rowline"><span class="grow">' + esc(u.email) + ' <span class="chip">' + (u.role === 'owner' ? t('владелец') : t('ресепшен')) + '</span></span>' + (u.user_id !== S.user.id ? '<button class="btn del" data-act="del-staff" data-id="' + esc(u.user_id) + '" aria-label="' + esc(t('Удалить')) + '">×</button>' : '') + '</div>').join('') +
-    fld(t('Почта нового сотрудника'), '<input id="staff-email" type="email" inputmode="email" data-f="newStaff" value="' + esc(S.newStaff || '') + '">') +
-    '<div class="row gaptop"><button class="btn" data-act="add-staff">' + t('Дать доступ ресепшену') + '</button></div></div>' +
-    '<p class="note">' + t('Сотрудник сначала сам создаёт аккаунт в этом приложении, потом вы добавляете его почту.') + '</p></section>';
+    '<div class="rowline"><span class="grow"><b>' + esc(u.name || u.email) + '</b> <span class="chip">' + (u.role === 'owner' ? t('владелец') : t('ресепшен')) + '</span></span>' + (u.user_id !== S.user.id && u.role !== 'owner' ? '<button class="btn ghost small" data-act="staff-link" data-id="' + esc(u.user_id) + '">' + t('Новая ссылка') + '</button><button class="btn del" data-act="del-staff" data-id="' + esc(u.user_id) + '" aria-label="' + esc(t('Удалить')) + '">×</button>' : '') + '</div>').join('') + '</div>' +
+    '<div class="panel">' + fld(t('Имя нового сотрудника'), '<input id="staff-name" type="text" autocomplete="off" data-f="inviteName" value="' + esc(inv.name || '') + '">') +
+    '<div class="row"><button class="btn" data-act="invite">' + t('Создать ссылку для входа') + '</button></div>' +
+    (inv.link ? '<div class="invbox"><p class="small"><b>' + t('Ссылка для сотрудника') + '</b></p><input type="text" readonly value="' + esc(inv.link) + '" data-select><div class="row"><button class="btn" data-act="copy-link">' + t('Скопировать') + '</button><a class="btn ghost" target="_blank" rel="noopener" href="https://t.me/share/url?url=' + encodeURIComponent(inv.link) + '&text=' + encodeURIComponent(t('Ссылка для входа в «Ресепшен»')) + '">' + t('Отправить в Telegram') + '</a></div></div>' : '') + '</div>' +
+    '<p class="note">' + t('Сотрудник открывает ссылку на своём телефоне и сразу входит, без пароля. Ссылка одноразовая и действует недолго. Если не успел, создайте новую. «×» закрывает доступ сразу.') + '</p></section>';
   return clinic + doctors + services + staff + appsBlock(S) + account + look;
 }
 
@@ -222,10 +230,13 @@ export function vSheet(S) {
       '<div class="row gaptop"><button class="btn pay" data-act="rc-ok" data-id="' + esc(a.id) + '"' + (sh.busy ? ' disabled' : '') + '>' + t('Подтвердить оплату') + '</button><button class="btn ghost danger" data-act="rc-no" data-id="' + esc(a.id) + '"' + (sh.busy ? ' disabled' : '') + '>' + t('Отклонить') + '</button></div>';
   } else if (sh.k === 'appt') {
     const a = S.appts.filter((x) => x.id === sh.id)[0]; if (!a) return '';
-    const btns = a.status === 'booked' ? '<button class="btn" data-act="came" data-id="' + esc(a.id) + '">' + t('Пришёл') + '</button><button class="btn pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Оплата') + '</button><button class="btn ghost" data-act="noshow" data-id="' + esc(a.id) + '">' + t('Не пришёл') + '</button><button class="btn ghost" data-act="cancel" data-id="' + esc(a.id) + '">' + t('Отменить запись') + '</button>'
-      : a.status === 'came' ? '<button class="btn pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Оплата') + '</button><button class="btn ghost" data-act="cancel" data-id="' + esc(a.id) + '">' + t('Отменить запись') + '</button>'
-      : a.status === 'done' ? '<button class="btn ghost pay" data-act="pay" data-id="' + esc(a.id) + '">' + t('Изменить оплату') + '</button>'
-      : a.status === 'blocked' ? '<button class="btn" data-act="unblock" data-id="' + esc(a.id) + '">' + t('Открыть время') + '</button>' : '';
+    const paidA = a.status === 'done' || fullPre(S, a), B = (act, label, cls) => '<button class="btn ' + (cls || '') + '" data-act="' + act + '" data-id="' + esc(a.id) + '">' + t(label) + '</button>';
+    let btns = '';
+    if (a.status === 'booked') btns = B('came', 'Пришёл') + (paidA ? '' : B('pay', 'Оплата', 'pay')) + B('noshow', 'Не пришёл', 'ghost') + (paidA ? '' : B('cancel', 'Отменить запись', 'ghost'));
+    else if (a.status === 'came' || a.status === 'done') {
+      if (a.finished_at) btns = B('reopen', 'Вернуть в очередь', 'ghost') + (a.status === 'done' ? B('pay', 'Изменить оплату', 'ghost pay') : '');
+      else btns = (a.room_at ? '' : B('room', 'Вошёл к врачу')) + B('finish', 'Приём завершён', a.room_at ? '' : 'ghost') + (paidA ? (a.status === 'done' ? B('pay', 'Изменить оплату', 'ghost pay') : '') : B('pay', a.pay_status === 'paid' ? 'Доплата' : 'Оплата', 'pay')) + ((a.status === 'came' && !paidA) ? B('cancel', 'Отменить запись', 'ghost') : '');
+    } else if (a.status === 'blocked') btns = B('unblock', 'Открыть время');
     h = '<h2>' + esc(a.status === 'blocked' ? (a.note || t('Закрыто')) : (a.client_name || '—')) + '</h2>' +
       '<ul class="list"><li><div class="li-main"><b>' + t('Врач') + '</b></div><span>' + esc(docName(S, a.doctor_id)) + '</span></li>' +
       '<li><div class="li-main"><b>' + t('Время') + '</b></div><span class="num">' + hhmmOf(a.starts_at) + ' – ' + hhmmOf(a.ends_at) + '</span></li>' +
