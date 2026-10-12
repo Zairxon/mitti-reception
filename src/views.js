@@ -90,7 +90,7 @@ function queue(S) {
         body += '<button class="slot st-' + phase(a) + (pp ? ' ' + pp[0] : '') + '"' + style + ' data-act="appt" data-id="' + esc(a.id) + '"><b>' + esc(label) + '</b>' +
           '<small>' + (a.finished_at ? '✔ ' + t('прошёл') : a.status === 'done' ? '✓ ' + fmt(a.amount) : a.room_at && a.status === 'came' ? '🩺 ' + t('у врача') : a.status === 'came' ? '● ' + t('ждёт') : a.status === 'blocked' ? '' : pp ? pp[1] : srcTag(a.source)) + '</small></button>';
       } else {
-        body += '<span class="slot cont"' + style + '></span>';
+        body += '<span class="slot cont st-' + phase(hit.a) + (ppTag(hit.a) ? ' ' + ppTag(hit.a)[0] : '') + '"' + style + '></span>';
       }
     });
   });
@@ -237,6 +237,8 @@ export function vSheet(S) {
       if (a.finished_at) btns = B('reopen', 'Вернуть в очередь', 'ghost') + (a.status === 'done' ? B('pay', 'Изменить оплату', 'ghost pay') : '');
       else btns = (a.room_at ? '' : B('room', 'Вошёл к врачу')) + B('finish', 'Приём завершён', a.room_at ? '' : 'ghost') + (paidA ? (a.status === 'done' ? B('pay', 'Изменить оплату', 'ghost pay') : '') : B('pay', a.pay_status === 'paid' ? 'Доплата' : 'Оплата', 'pay')) + ((a.status === 'came' && !paidA) ? B('cancel', 'Отменить запись', 'ghost') : '');
     } else if (a.status === 'blocked') btns = B('unblock', 'Открыть время');
+    const paidSum = a.status === 'done' ? +a.amount || 0 : a.pay_status === 'paid' ? +a.deposit || 0 : 0;
+    if (a.status !== 'blocked' && paidSum > 0 && !(+a.refund_amount > 0)) btns += B('refund', 'Вернуть деньги', 'ghost danger');
     h = '<h2>' + esc(a.status === 'blocked' ? (a.note || t('Закрыто')) : (a.client_name || '—')) + '</h2>' +
       '<ul class="list"><li><div class="li-main"><b>' + t('Врач') + '</b></div><span>' + esc(docName(S, a.doctor_id)) + '</span></li>' +
       '<li><div class="li-main"><b>' + t('Время') + '</b></div><span class="num">' + hhmmOf(a.starts_at) + ' – ' + hhmmOf(a.ends_at) + '</span></li>' +
@@ -245,10 +247,20 @@ export function vSheet(S) {
       '<li><div class="li-main"><b>' + t('Откуда запись') + '</b></div><span>' + t(a.source === 'site' ? 'Сайт' : a.source === 'bot' ? 'Бот' : 'Ресепшен') + '</span></li>' +
       (a.status === 'done' ? '<li><div class="li-main"><b>' + t('Оплата') + '</b></div><span class="num">' + fmt(a.amount) + ' · ' + t(METHODS.filter((m) => m[0] === a.pay_method)[0] ? METHODS.filter((m) => m[0] === a.pay_method)[0][1] : 'Наличные') + '</span></li>' : '') +
       (a.pay_status && a.pay_status !== 'none' ? '<li><div class="li-main"><b>' + t('Предоплата') + '</b><span class="small muted">' + esc(bsvcName(S, a.bsvc_id)) + '</span></div><span class="num">' + fmt(a.deposit) + ' ' + t('сум') + '</span></li>' + '<li><div class="li-main"><b>' + t('Состояние оплаты') + '</b></div>' + payChip(a) + '</li>' : '') +
+      (+a.refund_amount > 0 ? '<li><div class="li-main"><b>↩ ' + t('Возврат денег') + '</b><span class="small muted">' + t(METHODS.filter((m) => m[0] === a.refund_method)[0] ? METHODS.filter((m) => m[0] === a.refund_method)[0][1] : 'Наличные') + (a.refund_note ? ' · ' + esc(a.refund_note) : '') + '</span></div><span class="num">−' + fmt(a.refund_amount) + '</span></li>' : '') +
       (a.note && a.status !== 'blocked' ? '<li><div class="li-main"><b>' + t('Комментарий') + '</b></div><span>' + esc(a.note) + '</span></li>' : '') + '</ul>' +
       (a.status === 'booked' && (a.pay_status === 'pending' || a.pay_status === 'rejected') ? '<p class="note">' + t('Клиент ещё не оплатил. Если оплата не придёт до {h}, бронь снимется сама.', { h: a.hold_until ? hhmmOf(a.hold_until) : '—' }) + '</p>' : '') +
       (a.status === 'booked' && a.pay_status === 'paid' ? '<p class="note">' + t('Предоплата подтверждена. Она входит в стоимость услуги: при оплате на приёме укажите полную сумму.') + '</p>' : '') +
       '<div class="row">' + (a.pay_status === 'review' ? '<button class="btn pay" data-act="rc-open" data-id="' + esc(a.id) + '">' + t('Проверить чек') + '</button>' : '') + ((a.pay_status === 'pending' || a.pay_status === 'rejected') && a.status === 'booked' ? '<button class="btn ghost" data-act="pp-waive" data-id="' + esc(a.id) + '">' + t('Принять без предоплаты') + '</button>' : '') + btns + '</div>';
+  } else if (sh.k === 'refund') {
+    const a = S.appts.filter((x) => x.id === sh.id)[0]; if (!a) return '';
+    const paidSum = a.status === 'done' ? +a.amount || 0 : +a.deposit || 0, canCancel = (a.status === 'booked' || a.status === 'came') && !a.finished_at;
+    h = '<h2>↩ ' + t('Вернуть деньги') + '</h2><p class="small muted">' + esc(a.client_name || '') + ' · ' + hhmmOf(a.starts_at) + ' · ' + t('Оплачено: {n} сум', { n: fmt(paidSum) }) + '</p>' +
+      fld(t('Сумма возврата, сум'), '<input id="f-amount" type="text" inputmode="numeric" class="n" data-f="amount" data-kind="money" value="' + esc(f.amount || '') + '" placeholder="0">') +
+      fld(t('Как вернули'), '<div class="seg three">' + METHODS.map((m) => '<button type="button" data-act="pay-m" data-id="' + m[0] + '" aria-pressed="' + ((f.method || 'card') === m[0]) + '">' + t(m[1]) + '</button>').join('') + '</div>') +
+      field(t('Причина (необязательно)'), 'note', f.note, 'autocomplete="off"') +
+      (canCancel ? '<div class="fld"><button type="button" class="chk' + (f.cancel ? ' on' : '') + '" data-act="rf-cancel" aria-pressed="' + !!f.cancel + '"><span class="box">' + (f.cancel ? '✓' : '') + '</span>' + t('Отменить запись, освободить время') + '</button></div>' : '') +
+      '<div class="row payrow"><button class="btn danger solid" data-act="save-refund"' + (sh.busy ? ' disabled' : '') + '>' + t('Вернуть деньги') + '</button></div>';
   } else if (sh.k === 'pay' || sh.k === 'walkin') {
     const who = sh.k === 'walkin' ? '<h2>' + t('Приём без записи') + '</h2>' + fld(t('Врач'), sel('f-doctor', S.doctors.filter((d) => d.active).map((d) => [d.id, d.name]), f.doctorId || '', 'data-f="doctorId"')) + field(t('Имя клиента'), 'name', f.name, 'autocomplete="off"') + field(t('Телефон'), 'phone', f.phone, 'inputmode="tel" autocomplete="off" placeholder="+998"')
       : '<h2>' + t('Оплата') + '</h2><p class="small muted">' + esc((S.appts.filter((x) => x.id === sh.id)[0] || {}).client_name || '') + '</p>' + (((S.appts.filter((x) => x.id === sh.id)[0] || {}).pay_status === 'paid') ? '<p class="note">💳 ' + t('Клиент уже внёс предоплату {n} сум на карту. Она входит в стоимость: укажите полную сумму услуги.', { n: fmt((S.appts.filter((x) => x.id === sh.id)[0] || {}).deposit) }) + '</p>' : '');

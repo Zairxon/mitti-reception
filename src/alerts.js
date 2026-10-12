@@ -16,7 +16,7 @@ function beep(kind) {
       o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.35, at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.2);
       o.connect(g); g.connect(ctx.destination); o.start(at); o.stop(at + 0.21);
     });
-    if (navigator.vibrate) navigator.vibrate(kind === 'receipt' ? [200, 100, 200, 100, 200] : [200]);
+    if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(kind === 'receipt' ? [200, 100, 200, 100, 200] : [200]);
   } catch (e) { /* без звука */ }
 }
 

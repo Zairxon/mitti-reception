@@ -210,6 +210,18 @@ async function savePay() {
     closeSheet(); toast(T('Оплата принята')); await refreshDay();
   } catch (e) { fail(e); }
 }
+async function saveRefund() {
+  const f = S.form, sh = S.sheet, a = apptById(sh.id); if (!a || sh.busy) return;
+  const paidSum = a.status === 'done' ? +a.amount || 0 : +a.deposit || 0, amount = num(f.amount);
+  if (!(amount > 0)) { toast(T('Введите сумму больше нуля')); return; }
+  if (amount > paidSum) { toast(T('Нельзя вернуть больше, чем оплачено: {n} сум', { n: fmt(paidSum) })); return; }
+  const patch = { refund_amount: amount, refund_method: f.method || 'card', refunded_at: new Date().toISOString(), refund_note: (f.note || '').trim() || null };
+  if (f.cancel && (a.status === 'booked' || a.status === 'came') && !a.finished_at) patch.status = 'cancelled';
+  const ok = await askConfirm(T('Вернуть клиенту {n} сум?', { n: fmt(amount) }) + (patch.status ? ' ' + T('Запись будет отменена.') : ''), T('Вернуть деньги'), T('Назад'));
+  if (!ok) return;
+  sh.busy = true;
+  try { await api.updateAppt(a.id, patch); closeSheet(); toast(T('Возврат записан')); await refreshDay(); } catch (e) { if (S.sheet) S.sheet.busy = false; fail(e); }
+}
 async function saveClient() {
   const f = S.form, sh = S.sheet, name = (f.name || '').trim();
   if (!name) { toast(T('Введите имя клиента')); return; }
@@ -275,6 +287,9 @@ document.addEventListener('click', (ev) => {
     case 'cancel': askConfirm((apptById(id) || {}).pay_status === 'paid' ? T('Отменить эту запись? Клиент уже внёс предоплату {n} сум: верните её или перенесите запись.', { n: fmt((apptById(id) || {}).deposit) }) : T('Отменить эту запись? Время снова станет свободным.'), T('Отменить запись'), T('Назад')).then((ok) => { if (ok) setStatus(id, 'cancelled'); }); break;
     case 'unblock': api.deleteAppt(id).then(() => { closeSheet(); return refreshDay(); }).catch(fail); break;
     case 'pay': openPay(id); break;
+    case 'refund': { const a = apptById(id); if (!a) break; const sum = a.status === 'done' ? +a.amount || 0 : +a.deposit || 0; S.sheet = { k: 'refund', id }; S.form = { amount: fmt(sum), method: a.status === 'done' ? (a.pay_method || 'cash') : 'card', note: '', cancel: (a.status === 'booked' || a.status === 'came') && !a.finished_at }; renderSheet(); break; }
+    case 'rf-cancel': S.form.cancel = !S.form.cancel; renderSheet(); break;
+    case 'save-refund': saveRefund(); break;
     case 'pp-waive': askConfirm(T('Клиент придёт без предоплаты и оплатит на месте? Бронь перестанет ждать оплату.'), T('Принять без предоплаты'), T('Назад')).then((ok) => { if (ok) api.updateAppt(id, { pay_status: 'none', hold_until: null }).then(async () => { toast(T('Готово')); await refreshDay(); }).catch(fail); }); break;
     case 'rc-open': { const a = (S.online || []).concat(S.appts || []).filter((x) => x.id === id)[0]; if (!a || !a.receipt_path) { toast(T('Чек ещё не прислан')); break; } S.sheet = { k: 'receipt', id, url: null }; renderSheet(); api.receiptUrl(a.receipt_path).then((u) => { if (S.sheet && S.sheet.id === id) { S.sheet.url = u; renderSheet(); } }); break; }
     case 'rc-ok': case 'rc-no': { if (!S.sheet || S.sheet.busy) break; S.sheet.busy = true; renderSheet(); api.decideReceipt(id, act === 'rc-ok').then(async () => { toast(T(act === 'rc-ok' ? 'Оплата подтверждена, клиент уведомлён' : 'Чек отклонён, клиент уведомлён')); closeSheet(); await refreshDay(); }).catch((e) => { if (S.sheet) S.sheet.busy = false; renderSheet(); fail(e); }); break; }
