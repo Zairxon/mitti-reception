@@ -536,3 +536,21 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 .yn .no.on{background:var(--bad);border-color:var(--bad);color:#fff}
 .invbox{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px dashed var(--line);border-radius:10px;margin-top:10px}
 .invbox input{font-size:12px}
+
+/* ===== мягкая палитра очереди, полупрозрачные плашки ===== */
+.lg.k-booked,.slot.st-booked{--k:#f2994a}
+.lg.k-came,.slot.st-came{--k:#e8b923}
+.lg.k-room,.slot.st-room{--k:#9b7fe0}
+.lg.k-done,.slot.st-done{--k:#43b36b}
+.lg.k-finished,.slot.st-finished{--k:#3d9ad1}
+.lg.k-blocked,.slot.st-blocked{--k:#8794ad}
+.lg.k-off{--k:#e0708f}
+.lg.k-pp-paid,.slot.pp-paid{--k:#26b5a0}
+.lg.k-pp-wait,.slot.pp-wait{--k:#f5d04a}
+.lg[class*="k-"],.slot.st-booked,.slot.st-came,.slot.st-room,.slot.st-done,.slot.st-finished,.slot.st-blocked,.slot.pp-paid,.slot.pp-wait{background-color:color-mix(in srgb,var(--k) 22%,transparent)!important;border-radius:11px;backdrop-filter:blur(2px)}
+.lg{font-weight:600;letter-spacing:.01em}
+.slot.st-finished{opacity:.8}
+.slot small,.slot b{color:var(--ink)}
+:root[data-theme="dark"] .lg[class*="k-"],:root[data-theme="dark"] .slot[class*="st-"],:root[data-theme="dark"] .slot.pp-paid,:root[data-theme="dark"] .slot.pp-wait{background-color:color-mix(in srgb,var(--k) 30%,transparent)!important}
+.ksec{background:color-mix(in srgb,var(--k) 8%,transparent)}
+.ksec.k-wait{--k:#e8b923}.ksec.k-exp{--k:#f2994a}.ksec.k-paid{--k:#43b36b}.ksec.k-fin{--k:#3d9ad1}
