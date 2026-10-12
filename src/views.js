@@ -227,12 +227,12 @@ export function vSheet(S) {
       '<li><div class="li-main"><b>' + esc(dayLabel(hhmmDate(a.starts_at))) + ' · ' + hhmmOf(a.starts_at) + '</b><span class="small muted">' + esc(docName(S, a.doctor_id)) + '</span></div></li>' +
       '<li><div class="li-main"><b>' + t('К оплате') + '</b></div><span class="num">' + fmt(a.deposit) + ' ' + t('сум') + '</span></li></ul>' +
       (sh.url ? '<a href="' + esc(sh.url) + '" target="_blank" rel="noopener"><img class="rcimg" src="' + esc(sh.url) + '" alt="' + esc(t('Чек')) + '"></a>' : '<p class="empty">' + t(sh.url === '' ? 'Не удалось загрузить фото чека' : 'Загружаю фото…') + '</p>') +
-      '<div class="row gaptop"><button class="btn pay" data-act="rc-ok" data-id="' + esc(a.id) + '"' + (sh.busy ? ' disabled' : '') + '>' + t('Подтвердить оплату') + '</button><button class="btn ghost danger" data-act="rc-no" data-id="' + esc(a.id) + '"' + (sh.busy ? ' disabled' : '') + '>' + t('Отклонить') + '</button></div>';
+      '<div class="row gaptop"><button class="btn pay" data-act="rc-ok" data-id="' + esc(a.id) + '"' + (sh.busy ? ' disabled' : '') + '>' + t('Подтвердить') + '</button><button class="btn danger solid" data-act="rc-no" data-id="' + esc(a.id) + '"' + (sh.busy ? ' disabled' : '') + '>' + t('Не подтверждён') + '</button></div>';
   } else if (sh.k === 'appt') {
     const a = S.appts.filter((x) => x.id === sh.id)[0]; if (!a) return '';
-    const paidA = a.status === 'done' || fullPre(S, a), B = (act, label, cls) => '<button class="btn ' + (cls || '') + '" data-act="' + act + '" data-id="' + esc(a.id) + '">' + t(label) + '</button>';
+    const paidA = a.status === 'done' || fullPre(S, a), prePaid = a.pay_status === 'paid', B = (act, label, cls) => '<button class="btn ' + (cls || '') + '" data-act="' + act + '" data-id="' + esc(a.id) + '">' + t(label) + '</button>';
     let btns = '';
-    if (a.status === 'booked') btns = B('came', 'Пришёл') + (paidA ? '' : B('pay', 'Оплата', 'pay')) + B('noshow', 'Не пришёл', 'ghost') + (paidA ? '' : B('cancel', 'Отменить запись', 'ghost'));
+    if (a.status === 'booked') btns = B('came', 'Пришёл') + ((paidA || prePaid) ? '' : B('pay', 'Оплата', 'pay')) + B('noshow', 'Не пришёл', 'ghost') + ((paidA || prePaid) ? '' : B('cancel', 'Отменить запись', 'ghost'));
     else if (a.status === 'came' || a.status === 'done') {
       if (a.finished_at) btns = B('reopen', 'Вернуть в очередь', 'ghost') + (a.status === 'done' ? B('pay', 'Изменить оплату', 'ghost pay') : '');
       else btns = (a.room_at ? '' : B('room', 'Вошёл к врачу')) + B('finish', 'Приём завершён', a.room_at ? '' : 'ghost') + (paidA ? (a.status === 'done' ? B('pay', 'Изменить оплату', 'ghost pay') : '') : B('pay', a.pay_status === 'paid' ? 'Доплата' : 'Оплата', 'pay')) + ((a.status === 'came' && !paidA) ? B('cancel', 'Отменить запись', 'ghost') : '');

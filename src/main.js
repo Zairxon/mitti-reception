@@ -20,6 +20,7 @@ import { mountFooter } from './footer.js';
 import { parseDate, maskDate, openCal, closeCal } from './datepicker.js';
 import { openSelect, closeSelect, askConfirm } from './ui.js';
 import { vLogin, vNoAccess, vNav, vTabs, vView, vSheet, clientList, TABS, fullPre } from './views.js';
+import { checkAlerts, unlockAudio } from './alerts.js';
 import { todayTz, isoAt, addDays, monthStart, maskHM, validHM } from './time.js';
 import { fmtPhoneInput, cleanPhone } from './phone.js';
 import { num, fmt } from './util.js';
@@ -73,9 +74,9 @@ function render() {
   else if (!S.user) app.innerHTML = vLogin(S);
   else if (!S.role) app.innerHTML = vNoAccess(S);
   else app.innerHTML = '<div id="nav">' + vNav(S) + '</div><div class="tabs"><div class="tabs-in" id="tabs" role="tablist">' + vTabs(S) + '</div></div><main id="view">' + vView(S) + '</main>';
-  renderSheet();
+  renderSheet(); checkAlerts(S);
 }
-function renderView() { if (!S.user || !S.role || !$('view')) return; $('nav').innerHTML = vNav(S); $('view').innerHTML = vView(S); }
+function renderView() { setTimeout(() => checkAlerts(S), 0); if (!S.user || !S.role || !$('view')) return; $('nav').innerHTML = vNav(S); $('view').innerHTML = vView(S); }
 function renderSheet() {
   $('sheet').innerHTML = vSheet(S);
   if (S.sheet && !(history.state && history.state.sheet)) history.pushState({ tab: S.tab, sheet: 1 }, ''); // «назад» сначала закроет окно
@@ -104,7 +105,7 @@ async function refreshDay() {
   if (!S.role) return;
   try {
     await loadDay();
-    renderView();
+    renderView(); checkAlerts(S);
     if (S.sheet && S.sheet.k === 'appt') { if (S.appts.some((a) => a.id === S.sheet.id)) renderSheet(); else closeSheet(); }
   } catch (e) { /* нет сети: покажем старое */ }
 }
@@ -238,6 +239,8 @@ async function saveSetting(key, value) {
 }
 
 /* ---------- события ---------- */
+const hhmmDateOf = (iso) => new Date(Date.parse(iso) + 5 * 3600e3).toISOString().slice(0, 10);
+['click', 'touchstart', 'keydown'].forEach((e) => document.addEventListener(e, unlockAudio, { passive: true }));
 document.addEventListener('click', (ev) => {
   const sb = ev.target.closest('.sel-btn'); if (sb) { openSelect(sb); return; }
   const cb = ev.target.closest('[data-cal]'); if (cb) { const i = $(cb.dataset.cal); if (i) openCal(i); return; }
@@ -253,7 +256,8 @@ document.addEventListener('click', (ev) => {
     case 'day-next': S.day = addDays(S.day, 1); dayChanged(); break;
     case 'day-today': S.day = todayTz(); dayChanged(); break;
     case 'slot': openNew(b.dataset.doc, b.dataset.t); break;
-    case 'appt': S.sheet = { k: 'appt', id }; S.form = {}; renderSheet(); break;
+    case 'appt': { const ap = apptById(id); if (ap && ap.pay_status === 'review' && ap.status === 'booked' && ap.receipt_path) { b.dataset.act = 'rc-open'; b.click(); break; } S.sheet = { k: 'appt', id }; S.form = {}; renderSheet(); break; }
+    case 'al-go': { const ap = apptById(id); if (ap && ap.status === 'came') { b.dataset.act = 'room'; b.click(); break; } S.day = ap ? hhmmDateOf(ap.starts_at) : S.day; S.sheet = { k: 'appt', id }; S.form = {}; if (ap) renderSheet(); else dayChanged().then(() => { S.sheet = { k: 'appt', id }; renderSheet(); }); break; }
     case 'sheet-close': closeSheet(); break;
     case 'save-new': saveNew(); break;
     case 'save-block': saveBlock(); break;
@@ -387,5 +391,6 @@ registerSW({ immediate: true });
     if (was !== u.id) { S.role = null; await afterLogin(); render(); }
   });
   setInterval(() => { if (document.visibilityState === 'visible' && S.role) refreshDay(); }, 60000);
+  setInterval(() => { if (S.role) checkAlerts(S); }, 15000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshDay(); });
 })();
