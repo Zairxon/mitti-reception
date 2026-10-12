@@ -24,6 +24,7 @@ import { checkAlerts, unlockAudio } from './alerts.js';
 import { todayTz, isoAt, addDays, monthStart, maskHM, validHM } from './time.js';
 import { fmtPhoneInput, cleanPhone } from './phone.js';
 import { num, fmt } from './util.js';
+window.__appReady = true;
 
 const $ = (id) => document.getElementById(id);
 const COLORS = ['#bd5a17', '#2f7d8c', '#7a5bb5', '#3f8a4f', '#c0392b'];
