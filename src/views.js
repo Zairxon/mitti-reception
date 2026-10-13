@@ -6,7 +6,7 @@ import { todayTz, isoAt, hhmmOf, isoDow, slotsOf, addDays, toMin, fromMin } from
 import { APP_LINKS } from './config.js';
 import { fmtPhone } from './phone.js';
 
-export const TABS = [['queue', 'Очередь'], ['cash', 'Касса'], ['clients', 'Клиенты'], ['report', 'Сводка'], ['set', 'Настройки']];
+export const TABS = [['queue', 'Очередь'], ['cash', 'Касса'], ['clients', 'Клиенты'], ['set', 'Настройки']];
 export const BUSY = ['booked', 'came', 'done', 'blocked'];
 const STATUS = { booked: 'Записан', came: 'Пришёл', room: 'У врача', done: 'Оплачено', finished: 'Прошёл', cancelled: 'Отменён', no_show: 'Не пришёл', blocked: 'Время закрыто' };
 // Этап визита: записан → пришёл → у врача → оплачено → прошёл (приём завершён)
@@ -132,7 +132,12 @@ function clients(S) {
 }
 
 /* ---------- касса ---------- */
+// Касса и отчёт по врачам в одной вкладке: переключатель «Сегодня» / «По врачам за период»
 function cash(S) {
+  const sw = '<div class="seg cashsw" role="tablist">' + [['day', 'Касса дня'], ['period', 'Отчёт по врачам']].map((x) => '<button type="button" role="tab" data-act="cash-view" data-id="' + x[0] + '" aria-pressed="' + ((S.cashView || 'day') === x[0]) + '">' + t(x[1]) + '</button>').join('') + '</div>';
+  return sw + ((S.cashView || 'day') === 'period' ? report(S) : cashDay(S));
+}
+function cashDay(S) {
   const day = S.appts.filter((a) => a.status !== 'cancelled' && a.status !== 'no_show' && a.status !== 'blocked');
   const paidA = (a) => a.status === 'done' || fullPre(S, a);
   const expected = day.filter((a) => a.status === 'booked' && !isHold(a)), waiting = day.filter((a) => a.status === 'came' && !paidA(a));

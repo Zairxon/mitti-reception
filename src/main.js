@@ -90,17 +90,19 @@ window.addEventListener('popstate', (e) => {
   if (S.sheet && !st.sheet) { S.sheet = null; S.form = {}; renderSheet(); return; }
   if (st.sheet) return;
   const t = st.tab || 'queue';
-  if (t !== S.tab) { S.tab = t; render(); window.scrollTo(0, 0); if (t === 'report') loadReport(); }
+  if (t !== S.tab) { S.tab = t; render(); window.scrollTo(0, 0); if (onReport()) loadReport(); }
 });
+// отчёт по врачам теперь живёт во вкладке «Касса» (переключатель), грузим его только когда он открыт
+const onReport = () => S.tab === 'cash' && S.cashView === 'period';
 function openTab(id) {
   S.tab = id; render(); window.scrollTo(0, 0);
   const cur = history.state || {};
   if (id === 'queue') { if (cur.tab) history.back(); } else if (cur.tab) history.replaceState({ tab: id }, ''); else history.pushState({ tab: id }, '');
-  if (id === 'report') loadReport(); if (id === 'set' && S.role === 'owner') loadStaff().then(renderView);
+  if (onReport()) loadReport(); if (id === 'set' && S.role === 'owner') loadStaff().then(renderView);
 }
 
 /* ---------- загрузка данных ---------- */
-function dayChanged() { return loadDay().then(() => { render(); if (S.tab === 'report') loadReport(); }).catch(fail); }
+function dayChanged() { return loadDay().then(() => { render(); if (onReport()) loadReport(); }).catch(fail); }
 // Загрузка дня: все запросы идут одновременно (раньше шли по очереди и экран отставал); снятие просроченных броней не чаще раза в 30 секунд — это и так делает база каждую минуту
 let lastExpire = 0;
 async function loadDay() {
@@ -138,7 +140,7 @@ async function afterLogin() {
     await Promise.all([loadDay(), api.loadClients().then((c) => { S.clients = c; })]);
     if (S.role === 'owner') await loadStaff();
     if (!subscribed) { subscribed = true; api.subscribe(() => { clearTimeout(liveTimer); liveTimer = setTimeout(refreshDay, 300); }); }
-    if (S.tab === 'report') loadReport();
+    if (onReport()) loadReport();
   } catch (e) { fail(e); }
 }
 
@@ -285,6 +287,7 @@ document.addEventListener('click', (ev) => {
     case 'day-today': S.day = todayTz(); dayChanged(); break;
     case 'slot': if (S.moving) doMove(b.dataset.doc, b.dataset.t); else openNew(b.dataset.doc, b.dataset.t); break;
     case 'move': S.moving = { id }; closeSheet(); S.tab = 'queue'; renderView(); toast(T('Выберите свободное время для переноса')); break;
+    case 'cash-view': S.cashView = id === 'period' ? 'period' : 'day'; renderView(); if (onReport()) loadReport(); break;
     case 'move-cancel': S.moving = null; renderView(); break;
     case 'appt': { const ap = apptById(id); if (ap && ap.pay_status === 'review' && ap.status === 'booked' && ap.receipt_path) { b.dataset.act = 'rc-open'; b.click(); break; } S.sheet = { k: 'appt', id }; S.form = {}; renderSheet(); break; }
     case 'al-go': { const ap = apptById(id); if (ap && ap.status === 'came') { b.dataset.act = 'room'; b.click(); break; } S.day = ap ? hhmmDateOf(ap.starts_at) : S.day; S.sheet = { k: 'appt', id }; S.form = {}; if (ap) renderSheet(); else dayChanged().then(() => { S.sheet = { k: 'appt', id }; renderSheet(); }); break; }
