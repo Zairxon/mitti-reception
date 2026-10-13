@@ -613,3 +613,7 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 .slot .qa.pay{border-color:var(--good)}
 .slot .qa.ghost{border-color:var(--line);font-weight:600;color:var(--muted)}
 .slot .qa.qx{flex:0 0 34px}
+
+/* окно проверки чека чуть компактнее, на компьютере не прокручивается */
+.rcimg{max-height:min(42vh,380px)}
+@media (min-width:700px){.sheet-card{max-height:96vh}.rcimg{max-height:min(38vh,340px)}}
