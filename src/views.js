@@ -249,8 +249,10 @@ export function vSheet(S) {
       if (a.finished_at) btns = B('reopen', 'Вернуть в очередь', 'ghost') + (a.status === 'done' ? B('pay', 'Изменить оплату', 'ghost pay') : '');
       else btns = (a.room_at ? '' : B('room', 'Вошёл к врачу')) + B('finish', 'Приём завершён', a.room_at ? '' : 'ghost') + (paidA ? (a.status === 'done' ? B('pay', 'Изменить оплату', 'ghost pay') : '') : B('pay', a.pay_status === 'paid' ? 'Доплата' : 'Оплата', 'pay')) + ((a.status === 'came' && !paidA) ? B('cancel', 'Отменить запись', 'ghost') : '');
     } else if (a.status === 'blocked') btns = B('unblock', 'Открыть время');
+    // приём завершён: окно только показывает итог, кнопки исправления прячутся за «Исправить» (чтобы не нажать случайно)
+    const fixHidden = !!a.finished_at && !sh.fix; if (fixHidden) btns = '';
     const paidSum = a.status === 'done' ? +a.amount || 0 : a.pay_status === 'paid' ? +a.deposit || 0 : 0;
-    if (a.status !== 'blocked' && paidSum > 0 && !(+a.refund_amount > 0)) btns += B('refund', 'Вернуть деньги', 'ghost danger');
+    if (fixHidden) btns = B('fix-open', 'Исправить', 'ghost'); else if (a.status !== 'blocked' && paidSum > 0 && !(+a.refund_amount > 0)) btns += B('refund', 'Вернуть деньги', 'ghost danger');
     h = '<h2>' + esc(a.status === 'blocked' ? (a.note || t('Закрыто')) : (a.client_name || '—')) + '</h2>' +
       '<ul class="list"><li><div class="li-main"><b>' + t('Врач') + '</b></div><span>' + esc(docName(S, a.doctor_id)) + '</span></li>' +
       '<li><div class="li-main"><b>' + t('Время') + '</b></div><span class="num">' + hhmmOf(a.starts_at) + ' – ' + hhmmOf(a.ends_at) + '</span></li>' +

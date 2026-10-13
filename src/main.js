@@ -277,6 +277,7 @@ document.addEventListener('click', (ev) => {
     case 'slot': openNew(b.dataset.doc, b.dataset.t); break;
     case 'appt': { const ap = apptById(id); if (ap && ap.pay_status === 'review' && ap.status === 'booked' && ap.receipt_path) { b.dataset.act = 'rc-open'; b.click(); break; } S.sheet = { k: 'appt', id }; S.form = {}; renderSheet(); break; }
     case 'al-go': { const ap = apptById(id); if (ap && ap.status === 'came') { b.dataset.act = 'room'; b.click(); break; } S.day = ap ? hhmmDateOf(ap.starts_at) : S.day; S.sheet = { k: 'appt', id }; S.form = {}; if (ap) renderSheet(); else dayChanged().then(() => { S.sheet = { k: 'appt', id }; renderSheet(); }); break; }
+    case 'fix-open': if (S.sheet) { S.sheet.fix = true; renderSheet(); } break;
     case 'sheet-close': closeSheet(); break;
     case 'save-new': saveNew(); break;
     case 'save-block': saveBlock(); break;
