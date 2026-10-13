@@ -75,6 +75,8 @@ function quick(S, a, now) {
   if (!a.room_at) return '<span class="qrow">' + btn('room', 'К врачу') + '</span>';
   return '<span class="qrow">' + (paid ? btn('finish', 'Завершить') : btn('pay', 'Оплата', 'pay')) + '</span>';
 }
+// Бронь с сайта или бота, пока клиент ещё не отправил чек: время удержано, но клиентом это ещё не стало (в таблице без имени)
+export const isHold = (a) => a.status === 'booked' && a.pay_status === 'pending' && (a.source === 'site' || a.source === 'bot');
 function queue(S) {
   const st = S.settings, docs = S.doctors.filter((d) => d.active), day = S.day, slot = st.slot_minutes, now = Date.now(), dow = isoDow(day);
   if (!docs.length) return '<p class="empty">' + t('Нет активных врачей. Добавьте их в «Настройки».') + '</p>';
@@ -96,6 +98,7 @@ function queue(S) {
         if (!past) { c.free++; if (!c.next) c.next = tm; }
         body += '<button class="slot free' + (past ? ' past' : '') + '"' + style + ' data-act="slot" data-doc="' + esc(c.d.id) + '" data-t="' + tm + '" aria-label="' + esc(c.d.name + ' ' + tm) + '">+</button>';
       } else if (hit.s >= sMs && hit.s < eMs) {
+        if (isHold(hit.a)) { body += '<span class="slot hold"' + style + '><b>⏳ ' + t('Оформляется') + '</b><small>' + (hit.a.hold_until ? t('до {h}', { h: hhmmOf(hit.a.hold_until) }) : '') + '</small></span>'; return; }
         const a = hit.a, label = a.status === 'blocked' ? (a.note || t('Закрыто')) : (a.client_name || '—');
         const pp = ppTag(a);
         body += '<div class="slot st-' + phase(a) + (pp ? ' ' + pp[0] : '') + '"' + style + ' role="button" tabindex="0" data-act="appt" data-id="' + esc(a.id) + '"><b>' + esc(label) + '</b>' +
@@ -132,7 +135,7 @@ function clients(S) {
 function cash(S) {
   const day = S.appts.filter((a) => a.status !== 'cancelled' && a.status !== 'no_show' && a.status !== 'blocked');
   const paidA = (a) => a.status === 'done' || fullPre(S, a);
-  const expected = day.filter((a) => a.status === 'booked'), waiting = day.filter((a) => a.status === 'came' && !paidA(a));
+  const expected = day.filter((a) => a.status === 'booked' && !isHold(a)), waiting = day.filter((a) => a.status === 'came' && !paidA(a));
   const paidNow = day.filter((a) => a.status !== 'booked' && paidA(a) && !a.finished_at), finished = day.filter((a) => a.finished_at && paidA(a));
   const done = day.filter((a) => a.status === 'done'), by = { cash: 0, card: 0, transfer: 0 }; let total = 0;
   done.forEach((a) => { total += +a.amount; if (by[a.pay_method] !== undefined) by[a.pay_method] += +a.amount; });
@@ -315,7 +318,7 @@ function receiptsBlock(S) {
 
 // Записи, сделанные клиентами на сайте и в боте (ближайшие), независимо от выбранного дня
 function onlineList(S) {
-  const list = S.online || [];
+  const list = (S.online || []).filter((a) => !isHold(a));
   return '<section><h2>' + t('Онлайн-записи (сайт и бот)') + '</h2>' + (list.length ? '<ul class="list">' + list.slice(0, 30).map((a) => {
     const day = new Date(Date.parse(a.starts_at) + 5 * 3600e3).toISOString().slice(0, 10);
     return '<li><div class="li-main"><b>' + esc(a.client_name || '—') + '</b><span class="small muted">' + esc(dayLabel(day)) + ' · ' + hhmmOf(a.starts_at) + ' · ' + esc(docName(S, a.doctor_id)) + ' · ' + t(a.source === 'bot' ? 'бот' : 'сайт') + '</span>' + payChip(a) + '</div><button class="btn ghost" data-act="goto-day" data-day="' + day + '">' + t('Открыть день') + '</button></li>';

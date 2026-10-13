@@ -28,7 +28,7 @@ const SOON_MS = 5 * 60000;
 export function pending(S) {
   const now = Date.now(), seen = {};
   const rc = (S.online || []).concat(S.appts || []).filter((a) => a.pay_status === 'review' && a.status === 'booked' && !seen[a.id] && (seen[a.id] = 1));
-  const soon = (S.appts || []).filter((a) => a.status !== 'blocked' && a.client_name !== undefined && (a.status === 'booked' || a.status === 'came') && !a.room_at && !a.finished_at && a.pay_status !== 'review' && Date.parse(a.starts_at) - now <= SOON_MS && Date.parse(a.ends_at) > now);
+  const soon = (S.appts || []).filter((a) => a.status !== 'blocked' && a.client_name !== undefined && (a.status === 'booked' || a.status === 'came') && !a.room_at && !a.finished_at && a.pay_status !== 'review' && !(a.pay_status === 'pending' && (a.source === 'site' || a.source === 'bot')) && Date.parse(a.starts_at) - now <= SOON_MS && Date.parse(a.ends_at) > now);
   const refund = (S.refundReqs || []).filter((a) => a.status === 'no_show' && a.refund_requested_at && !(+a.refund_amount > 0));
   return { rc, soon, refund };
 }

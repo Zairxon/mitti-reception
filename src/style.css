@@ -617,3 +617,7 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 /* окно проверки чека чуть компактнее, на компьютере не прокручивается */
 .rcimg{max-height:min(42vh,380px)}
 @media (min-width:700px){.sheet-card{max-height:96vh}.rcimg{max-height:min(38vh,340px)}}
+
+/* бронь с сайта, пока клиент не отправил чек: время занято, но имени нет */
+.slot.hold{border:1px dashed var(--line);background:repeating-linear-gradient(135deg,transparent,transparent 5px,color-mix(in srgb,var(--warn) 14%,transparent) 5px,color-mix(in srgb,var(--warn) 14%,transparent) 10px);cursor:default;pointer-events:none;opacity:.85}
+.slot.hold b{font-weight:600;color:var(--muted)}
