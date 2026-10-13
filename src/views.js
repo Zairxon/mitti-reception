@@ -64,6 +64,17 @@ export function vTabs(S) {
 
 /* ---------- очередь ---------- */
 const effOf = (S, d) => ({ bs: d.break_start ? toMin(String(d.break_start).slice(0, 5)) : null, be: d.break_end ? toMin(String(d.break_end).slice(0, 5)) : null, a: toMin(String(d.work_start || S.settings.work_start).slice(0, 5)), b: toMin(String(d.work_end || S.settings.work_end).slice(0, 5)), days: d.work_days || S.settings.work_days });
+// Кнопки быстрого действия прямо в клетке клиента: следующий шаг без открытия окна
+function quick(S, a, now) {
+  if (a.status === 'blocked' || a.finished_at || a.status === 'cancelled' || a.status === 'no_show') return '';
+  const paid = a.status === 'done' || fullPre(S, a), btn = (act, label, cls) => '<button type="button" class="qa ' + (cls || '') + '" data-act="' + act + '" data-id="' + esc(a.id) + '">' + t(label) + '</button>';
+  if (a.status === 'booked') {
+    if (a.pay_status === 'review') return ''; // чек на проверке: открывается окно проверки чека
+    return '<span class="qrow">' + btn('came', 'Пришёл') + (Date.parse(a.starts_at) + 10 * 60000 < now ? '<button type="button" class="qa ghost qx" data-act="noshow" data-id="' + esc(a.id) + '" title="' + esc(t('Не пришёл')) + '" aria-label="' + esc(t('Не пришёл')) + '">✕</button>' : '') + '</span>';
+  }
+  if (!a.room_at) return '<span class="qrow">' + btn('room', 'К врачу') + '</span>';
+  return '<span class="qrow">' + (paid ? btn('finish', 'Завершить') : btn('pay', 'Оплата', 'pay')) + '</span>';
+}
 function queue(S) {
   const st = S.settings, docs = S.doctors.filter((d) => d.active), day = S.day, slot = st.slot_minutes, now = Date.now(), dow = isoDow(day);
   if (!docs.length) return '<p class="empty">' + t('Нет активных врачей. Добавьте их в «Настройки».') + '</p>';
@@ -87,8 +98,8 @@ function queue(S) {
       } else if (hit.s >= sMs && hit.s < eMs) {
         const a = hit.a, label = a.status === 'blocked' ? (a.note || t('Закрыто')) : (a.client_name || '—');
         const pp = ppTag(a);
-        body += '<button class="slot st-' + phase(a) + (pp ? ' ' + pp[0] : '') + '"' + style + ' data-act="appt" data-id="' + esc(a.id) + '"><b>' + esc(label) + '</b>' +
-          '<small>' + (a.finished_at ? '✔ ' + t('прошёл') : a.status === 'done' ? '✓ ' + fmt(a.amount) : a.room_at && a.status === 'came' ? '🩺 ' + t('у врача') : a.status === 'came' ? '● ' + t('ждёт') : a.status === 'blocked' ? '' : pp ? pp[1] : srcTag(a.source)) + '</small></button>';
+        body += '<div class="slot st-' + phase(a) + (pp ? ' ' + pp[0] : '') + '"' + style + ' role="button" tabindex="0" data-act="appt" data-id="' + esc(a.id) + '"><b>' + esc(label) + '</b>' +
+          '<small>' + (a.finished_at ? '✔ ' + t('прошёл') : a.status === 'done' ? '✓ ' + fmt(a.amount) : a.room_at && a.status === 'came' ? '🩺 ' + t('у врача') : a.status === 'came' ? '● ' + t('ждёт') : a.status === 'blocked' ? '' : pp ? pp[1] : srcTag(a.source)) + '</small>' + quick(S, a, now) + '</div>';
       } else {
         body += '<span class="slot cont st-' + phase(hit.a) + (ppTag(hit.a) ? ' ' + ppTag(hit.a)[0] : '') + '"' + style + '></span>';
       }
