@@ -175,6 +175,15 @@ function openPay(id) {
   S.form = { serviceId: a.service_id || '', amount: +a.amount > 0 ? fmt(a.amount) : (svc && svc.price ? fmt(svc.price) : ''), method: a.pay_method || 'cash' };
   renderSheet();
 }
+// Перенос записи: старое время освобождается, у клиента сохраняются предоплата и история
+async function doMove(doctor, tm) {
+  const a = apptById(S.moving && S.moving.id); if (!a) { S.moving = null; renderView(); return; }
+  const len = Date.parse(a.ends_at) - Date.parse(a.starts_at), st = isoAt(S.day, tm);
+  try {
+    await api.updateAppt(a.id, { doctor_id: doctor, starts_at: st, ends_at: new Date(Date.parse(st) + len).toISOString() });
+    S.moving = null; toast(T('Запись перенесена. Предупредите клиента о новом времени.')); await refreshDay();
+  } catch (e) { fail(e); await refreshDay(); }
+}
 async function saveNew() {
   const f = S.form, sh = S.sheet, name = (f.name || '').trim();
   if (!name) { toast(T('Введите имя клиента')); return; }
@@ -200,7 +209,7 @@ async function setStatus(id, status) {
 async function savePay() {
   const f = S.form, sh = S.sheet, amount = num(f.amount);
   if (!(amount > 0)) { toast(T('Введите сумму больше нуля')); return; }
-  const payload = { amount, pay_method: f.method || 'cash', service_id: f.serviceId || null, paid_at: new Date().toISOString() };
+  const payload = { amount, pay_method: f.method || 'cash', service_id: f.serviceId || null, paid_at: new Date().toISOString(), check_no: (f.checkNo || '').trim() || null };
   try {
     if (sh.k === 'walkin') {
       const name = (f.name || '').trim() || T('Без записи'), phone = cleanPhone(f.phone), cid = await ensureClient(name, phone, '');
@@ -274,7 +283,9 @@ document.addEventListener('click', (ev) => {
     case 'day-prev': S.day = addDays(S.day, -1); dayChanged(); break;
     case 'day-next': S.day = addDays(S.day, 1); dayChanged(); break;
     case 'day-today': S.day = todayTz(); dayChanged(); break;
-    case 'slot': openNew(b.dataset.doc, b.dataset.t); break;
+    case 'slot': if (S.moving) doMove(b.dataset.doc, b.dataset.t); else openNew(b.dataset.doc, b.dataset.t); break;
+    case 'move': S.moving = { id }; closeSheet(); S.tab = 'queue'; renderView(); toast(T('Выберите свободное время для переноса')); break;
+    case 'move-cancel': S.moving = null; renderView(); break;
     case 'appt': { const ap = apptById(id); if (ap && ap.pay_status === 'review' && ap.status === 'booked' && ap.receipt_path) { b.dataset.act = 'rc-open'; b.click(); break; } S.sheet = { k: 'appt', id }; S.form = {}; renderSheet(); break; }
     case 'al-go': { const ap = apptById(id); if (ap && ap.status === 'came') { b.dataset.act = 'room'; b.click(); break; } S.day = ap ? hhmmDateOf(ap.starts_at) : S.day; S.sheet = { k: 'appt', id }; S.form = {}; if (ap) renderSheet(); else dayChanged().then(() => { S.sheet = { k: 'appt', id }; renderSheet(); }); break; }
     case 'fix-open': if (S.sheet) { S.sheet.fix = true; renderSheet(); } break;

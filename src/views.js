@@ -139,6 +139,7 @@ function cash(S) {
   const paidNow = day.filter((a) => a.status !== 'booked' && paidA(a) && !a.finished_at), finished = day.filter((a) => a.finished_at && paidA(a));
   const done = day.filter((a) => a.status === 'done'), by = { cash: 0, card: 0, transfer: 0 }; let total = 0;
   done.forEach((a) => { total += +a.amount; if (by[a.pay_method] !== undefined) by[a.pay_method] += +a.amount; });
+  const noChk = done.filter((a) => !a.check_no).length;
   const mname = (a) => (METHODS.filter((m) => m[0] === a.pay_method)[0] || ['', 'Наличные'])[1];
   const B = (act, label, cls, a) => '<button class="btn ' + (cls || '') + '" data-act="' + act + '" data-id="' + esc(a.id) + '">' + t(label) + '</button>';
   const row = (a, btns) => '<li><div class="li-main"><b>' + esc(a.client_name || '—') + '</b><span class="small muted">' + hhmmOf(a.starts_at) + ' · ' + esc(docName(S, a.doctor_id)) + (a.status === 'done' ? ' · ' + t(mname(a)) : fullPre(S, a) ? ' · 💳 ' + t('оплачено вперёд') : '') + (a.room_at && !a.finished_at ? ' · 🩺 ' + t('у врача') : '') + '</span></div>' +
@@ -147,6 +148,7 @@ function cash(S) {
   return '<section><h2>' + t('Касса за день') + '</h2>' +
     '<div class="kpis"><div class="kpi"><span>' + t('Принято клиентов') + '</span><b>' + finished.length + '</b></div><div class="kpi"><span>' + t('Сумма') + '</span><b>' + fmt(total) + '</b></div>' +
     '<div class="kpi"><span>' + t('Наличные') + '</span><b>' + fmt(by.cash) + '</b></div><div class="kpi"><span>' + t('Карта и перевод') + '</span><b>' + fmt(by.card + by.transfer) + '</b></div></div>' +
+    (noChk ? '<p class="note">' + t('Оплат без номера фискального чека: {n}. Номер указывается в окне оплаты, чек нужен на каждую оплату.', { n: noChk }) + '</p>' : '') +
     '<div class="row gaptop"><button class="btn" data-act="walkin">' + t('Приём без записи') + '</button></div></section>' +
     sec('k-wait', 'Ждут оплаты', waiting, (a) => row(a, (a.room_at ? '' : B('room', 'Вошёл к врачу', 'ghost', a)) + B('pay', 'Оплата', 'pay', a)), 'Никто не ждёт оплаты.') +
     sec('k-exp', 'Записаны, ещё не пришли', expected, (a) => row(a, B('came', 'Пришёл', 'ghost', a)), 'Нет записанных.') +
@@ -254,6 +256,7 @@ export function vSheet(S) {
     } else if (a.status === 'blocked') btns = B('unblock', 'Открыть время');
     // приём завершён: окно только показывает итог, кнопки исправления прячутся за «Исправить» (чтобы не нажать случайно)
     const fixHidden = !!a.finished_at && !sh.fix; if (fixHidden) btns = '';
+    if ((a.status === 'booked' || a.status === 'came') && !a.finished_at) btns += B('move', 'Перенести', 'ghost');
     const paidSum = a.status === 'done' ? +a.amount || 0 : a.pay_status === 'paid' ? +a.deposit || 0 : 0;
     if (fixHidden) btns = B('fix-open', 'Исправить', 'ghost'); else if (a.status !== 'blocked' && paidSum > 0 && !(+a.refund_amount > 0)) btns += B('refund', 'Вернуть деньги', 'ghost danger');
     h = '<h2>' + esc(a.status === 'blocked' ? (a.note || t('Закрыто')) : (a.client_name || '—')) + '</h2>' +
@@ -284,6 +287,7 @@ export function vSheet(S) {
     h = who + fld(t('Услуга'), sel('f-service', svcOpts, f.serviceId || '', 'data-f="serviceId"')) +
       fld(t('Сумма, сум'), '<input id="f-amount" type="text" inputmode="numeric" class="n" data-f="amount" data-kind="money" value="' + esc(f.amount || '') + '" placeholder="0">') +
       fld(t('Способ оплаты'), '<div class="seg three">' + METHODS.map((m) => '<button type="button" data-act="pay-m" data-id="' + m[0] + '" aria-pressed="' + ((f.method || 'cash') === m[0]) + '">' + t(m[1]) + '</button>').join('') + '</div>') +
+      field(t('Номер фискального чека (необязательно)'), 'checkNo', f.checkNo, 'autocomplete="off"') +
       '<div class="row payrow"><button class="btn pay" data-act="save-pay">' + t('Принять оплату') + '</button></div>';
   } else if (sh.k === 'client' || sh.k === 'newclient') {
     const c = sh.k === 'client' ? S.clients.filter((x) => x.id === sh.id)[0] : null;
@@ -325,8 +329,13 @@ function onlineList(S) {
   }).join('') + '</ul>' : '<p class="empty">' + t('Нет онлайн-записей.') + '</p>') + '</section>';
 }
 
+function moveBar(S) {
+  if (!S.moving) return '';
+  const a = (S.appts || []).concat(S.online || []).filter((x) => x.id === S.moving.id)[0];
+  return '<div class="movebar" role="status"><span>' + t('Куда перенести: {n}? Выберите свободное время в таблице (можно перейти на другой день).', { n: esc(a ? a.client_name || '—' : '') }) + '</span><button type="button" class="btn ghost" data-act="move-cancel">' + t('Отмена') + '</button></div>';
+}
 export function vView(S) {
   const tab = S.tab;
-  return tab === 'queue' ? receiptsBlock(S) + '<section><h2>' + t('Очередь на приём') + '</h2>' + queue(S) + '</section>' + onlineList(S) : tab === 'clients' ? clients(S) : tab === 'cash' ? cash(S) : tab === 'report' ? report(S) : settings(S);
+  return tab === 'queue' ? moveBar(S) + receiptsBlock(S) + '<section><h2>' + t('Очередь на приём') + '</h2>' + queue(S) + '</section>' + onlineList(S) : tab === 'clients' ? clients(S) : tab === 'cash' ? cash(S) : tab === 'report' ? report(S) : settings(S);
 }
 export { addDays };

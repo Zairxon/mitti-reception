@@ -621,3 +621,7 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 /* бронь с сайта, пока клиент не отправил чек: время занято, но имени нет */
 .slot.hold{border:1px dashed var(--line);background:repeating-linear-gradient(135deg,transparent,transparent 5px,color-mix(in srgb,var(--warn) 14%,transparent) 5px,color-mix(in srgb,var(--warn) 14%,transparent) 10px);cursor:default;pointer-events:none;opacity:.85}
 .slot.hold b{font-weight:600;color:var(--muted)}
+
+/* перенос записи */
+.movebar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:0 0 10px;padding:10px 12px;border-radius:12px;border:1px solid var(--accent);background:var(--soft);color:var(--ink)}
+.movebar span{flex:1;line-height:1.35}
