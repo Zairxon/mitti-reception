@@ -286,9 +286,10 @@ export function vSheet(S) {
       '<div class="row"><button class="btn" data-act="save-client">' + t('Сохранить') + '</button></div>';
     if (c) {
       const hist = S.hist || [];
-      let paid = 0, n = 0; hist.forEach((a) => { if (a.status === 'done') { n++; paid += +a.amount; } });
+      let paid = 0, n = 0, lastV = ''; hist.forEach((a) => { if (a.status === 'done') { n++; paid += +a.amount; } if (a.finished_at && a.starts_at > lastV) lastV = a.starts_at; });
       h += '<h2>' + t('История') + '</h2><p class="small muted">' + t('Приёмов: {n}, оплачено: {s}', { n: n, s: money(paid) }) + '</p>' +
-        (hist.length ? '<ul class="list">' + hist.slice(0, 30).map((a) => '<li><div class="li-main"><b>' + fmtDate(hhmmDate(a.starts_at)) + ' ' + hhmmOf(a.starts_at) + '</b><span class="small muted">' + esc(docName(S, a.doctor_id)) + ' · ' + t(STATUS[a.status]) + '</span></div>' + (a.status === 'done' ? '<span class="num">' + fmt(a.amount) + '</span>' : '') + '</li>').join('') + '</ul>' : '<p class="empty">' + t('Приёмов ещё не было.') + '</p>');
+        (lastV ? '<p class="small muted">' + t('Последний визит') + ': ' + fmtDate(hhmmDate(lastV)) + '</p>' : '') +
+        (hist.length ? '<ul class="list">' + hist.slice(0, 30).map((a) => '<li><div class="li-main"><b>' + fmtDate(hhmmDate(a.starts_at)) + ' ' + hhmmOf(a.starts_at) + '</b><span class="small muted">' + esc(docName(S, a.doctor_id)) + ' · ' + t(STATUS[a.status]) + '</span><span class="small muted">📞 ' + esc(fmtPhone(a.client_phone || '') || '—') + ' · ' + t(a.source === 'site' ? 'Сайт' : a.source === 'bot' ? 'Бот' : 'Ресепшен') + '</span></div>' + (a.status === 'done' ? '<span class="num">' + fmt(a.amount) + '</span>' : '') + '</li>').join('') + '</ul>' : '<p class="empty">' + t('Приёмов ещё не было.') + '</p>');
     }
   }
   return '<div class="sheet" data-sheet><div class="sheet-card" role="dialog" aria-modal="true">' + close + h + '</div></div>';
