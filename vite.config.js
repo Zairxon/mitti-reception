@@ -17,9 +17,9 @@ export default defineConfig({
       includeAssets: ['icons/favicon.png', 'icons/apple-touch-icon.png'],
       workbox: { globPatterns: ['**/*.{js,css,html,svg,png,jpg,woff,woff2}'], navigateFallback: 'index.html' },
       manifest: {
-        name: '«Митти юракча»: Ресепшен',
+        name: '«Митти юрак»: Ресепшен',
         short_name: 'Ресепшен',
-        description: '«Митти юракча»: Ресепшен',
+        description: '«Митти юрак»: Ресепшен',
         lang: 'ru', start_url: './', scope: './', display: 'standalone', orientation: 'portrait',
         background_color: '#fff6ec', theme_color: '#bd5a17',
         icons: [
