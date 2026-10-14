@@ -627,3 +627,6 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 .movebar span{flex:1;line-height:1.35}
 
 .cashsw{margin:0 0 12px}
+
+/* логотип клиники над названием */
+.hero-logo{display:block;margin:0 auto 6px;width:56px;height:auto;padding:6px 8px;border-radius:14px;background:#fffdf9;box-shadow:0 4px 14px rgba(70,30,0,.35)}
