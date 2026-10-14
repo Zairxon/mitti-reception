@@ -9,5 +9,5 @@ export const APP_LINKS = {
   reception: 'https://mitti-resepshen.vercel.app/',
   queue: 'https://mitti-navbat.vercel.app/',
   // ссылка из кнопки «Отправить ссылку»: с меткой, чтобы в «Главном» было видно, сколько человек перешло отсюда
-  queueShare: 'https://mitti-navbat.vercel.app/?utm_source=ssilkasnavbat&utm_medium=other',
+  queueShare: 'https://mitti-navbat.vercel.app/?utm_source=resepshen&utm_medium=share',
 };
