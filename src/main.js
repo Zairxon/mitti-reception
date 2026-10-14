@@ -19,6 +19,7 @@ import { t as T, getLang, setLang, brand } from './i18n.js';
 import { mountFooter } from './footer.js';
 import { parseDate, maskDate, openCal, closeCal } from './datepicker.js';
 import { openSelect, closeSelect, askConfirm } from './ui.js';
+import { APP_LINKS } from './config.js';
 import { vLogin, vNoAccess, vNav, vTabs, vView, vSheet, clientList, TABS, fullPre } from './views.js';
 import { checkAlerts, unlockAudio } from './alerts.js';
 import { todayTz, isoAt, addDays, monthStart, maskHM, validHM } from './time.js';
@@ -338,6 +339,7 @@ document.addEventListener('click', (ev) => {
     case 'goto-day': S.day = b.dataset.day; openTab('queue'); dayChanged(); break;
     case 'doc-del': askConfirm(T('Удалить врача «{n}»? Это нельзя отменить.', { n: b.dataset.name }), T('Удалить врача'), T('Назад')).then((ok) => { if (ok) api.deleteDoctor(id).then(reloadBase).then(() => { renderView(); toast(T('Врач удалён')); }).catch(fail); }); break;
     case 'add-doctor': api.addDoctor({ name: T('Врач') + ' ' + (S.doctors.length + 1), sort: S.doctors.length + 1, color: COLORS[S.doctors.length % COLORS.length] }).then(reloadBase).then(renderView).catch(fail); break;
+    case 'share-queue': { const url = APP_LINKS.queue, text = T('Запись на УЗИ онлайн') + ': ' + url; if (navigator.share) navigator.share({ title: T('Запись на УЗИ онлайн'), text, url }).catch(() => {}); else { try { navigator.clipboard.writeText(url).then(() => toast(T('Ссылка скопирована'))); } catch (e) { toast(url); } } break; }
     case 'add-svc': api.addService({ name: T('Новая услуга'), price: 0, sort: S.services.length + 1 }).then(reloadBase).then(renderView).catch(fail); break;
     case 'del-svc': api.deleteService(id).then(reloadBase).then(renderView).catch(fail); break;
     case 'invite': { const nm = (S.invite.name || '').trim(); if (nm.length < 2) { toast(T('Введите имя сотрудника')); break; } api.inviteStaff(nm).then((r) => { S.invite = { name: '', link: r.link }; return loadStaff(); }).then(renderView).catch(fail); break; }

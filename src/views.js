@@ -181,9 +181,10 @@ function report(S) {
 /* ---------- ссылки на приложения клиники ---------- */
 function appsBlock(S) {
   const row = (name, desc, url) => '<li><div class="li-main"><b>' + t(name) + '</b><span class="small muted">' + t(desc) + '</span></div><a class="btn ghost" href="' + url + '" target="_blank" rel="noopener">' + t('Открыть') + '</a></li>';
+  const share = (name, desc) => '<li><div class="li-main"><b>' + t(name) + '</b><span class="small muted">' + t(desc) + '</span></div><button type="button" class="btn" data-act="share-queue">' + t('Отправить ссылку') + '</button></li>';
   return '<section><h2>' + t('Приложения клиники') + '</h2><ul class="list">' +
     (S.role === 'owner' ? row('Главный', 'бухгалтерия, зарплата, отчёты', APP_LINKS.main) : '') +
-    row('Очередь', 'запись для клиентов: ссылка для Instagram и бота', APP_LINKS.queue) + '</ul></section>';
+    (S.role === 'owner' ? row('Очередь', 'запись для клиентов: ссылка для Instagram и бота', APP_LINKS.queue) : share('Очередь', 'запись для клиентов: отправьте им ссылку')) + '</ul></section>';
 }
 
 /* ---------- настройки ---------- */
