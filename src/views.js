@@ -72,8 +72,9 @@ function quick(S, a, now) {
     if (a.pay_status === 'review') return ''; // чек на проверке: открывается окно проверки чека
     return '<span class="qrow">' + btn('came', 'Пришёл') + (Date.parse(a.starts_at) + 10 * 60000 < now ? '<button type="button" class="qa ghost qx" data-act="noshow" data-id="' + esc(a.id) + '" title="' + esc(t('Не пришёл')) + '" aria-label="' + esc(t('Не пришёл')) + '">✕</button>' : '') + '</span>';
   }
-  if (!a.room_at) return '<span class="qrow">' + btn('room', 'К врачу') + '</span>';
-  return '<span class="qrow">' + (paid ? btn('finish', 'Завершить') : btn('pay', 'Оплата', 'pay')) + '</span>';
+  // клиент пришёл: сначала оплата (на неё тоже уходит время), «К врачу» рядом; оплачено — «К врачу», затем «Завершить»
+  if (!paid) return '<span class="qrow">' + btn('pay', 'Оплата', 'pay') + (a.room_at ? '' : btn('room', 'К врачу', 'ghost')) + '</span>';
+  return '<span class="qrow">' + (a.room_at ? btn('finish', 'Завершить') : btn('room', 'К врачу')) + '</span>';
 }
 // Бронь с сайта или бота, пока клиент ещё не отправил чек: время удержано, но клиентом это ещё не стало (в таблице без имени)
 export const isHold = (a) => a.status === 'booked' && a.pay_status === 'pending' && (a.source === 'site' || a.source === 'bot');
