@@ -630,5 +630,8 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 
 
 /* услуга: два названия и цена */
-.svcbox{display:flex;flex-direction:column;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.svcbox{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .svcbox:last-child{border-bottom:0}
+.svcnames{display:flex;flex-direction:column;gap:8px;min-width:0}
+.svcpay{display:flex;align-items:center;gap:6px}
+.svcpay .n{width:104px}
