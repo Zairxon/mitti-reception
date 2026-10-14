@@ -411,6 +411,7 @@ document.addEventListener('change', (ev) => {
   }
   if (el.dataset.docName) { const name = el.value.trim(); if (name) api.updateDoctor(el.dataset.docName, { name }).then(reloadBase).catch(fail); return; }
   if (el.dataset.svcName) { const name = el.value.trim(); if (name) api.updateService(el.dataset.svcName, { name }).then(reloadBase).catch(fail); return; }
+  if (el.dataset.svcUz) { api.updateService(el.dataset.svcUz, { name_uz: el.value.trim() || null }).then(reloadBase).catch(fail); return; }
   if (el.dataset.svcPrice) { api.updateService(el.dataset.svcPrice, { price: num(el.value) }).then(reloadBase).catch(fail); }
 });
 
