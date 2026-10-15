@@ -109,10 +109,7 @@ function queue(S) {
       }
     });
   });
-  const sums = cols.map((c) => '<span><i style="--c:' + esc(c.d.color) + '"></i><b>' + esc(c.d.name) + '</b> · ' + (c.works ? t('свободно: {n}', { n: c.free }) + (c.next ? ' · ' + t('ближайшее {t}', { t: c.next }) : '') + ' · ' + fromMin(c.e.a) + '–' + fromMin(c.e.b) + (c.e.bs !== null ? ' · ' + t('обед') + ' ' + fromMin(c.e.bs) + '–' + fromMin(c.e.be) : '') : t('выходной')) + '</span>').join('');
   return (cols.some((c) => c.works) ? '' : '<p class="alert">' + t('Выходной день по настройкам. Записаться можно только вручную.') + '</p>') +
-    '<div class="qsum">' + sums + '</div>' +
-    '<div class="qlegend">' + [['booked', 'Записан'], ['came', 'Пришёл'], ['room', 'У врача'], ['done', 'Оплачено'], ['finished', 'Прошёл'], ['pp-paid', '💳 Предоплата'], ['pp-wait', '⏳ Ждёт оплату'], ['blocked', 'Закрыто'], ['off', 'Не работает']].map((x) => '<span class="lg k-' + x[0] + '">' + t(x[1]) + '</span>').join('') + '</div>' +
     '<div class="qgrid" style="grid-template-columns:40px repeat(' + cols.length + ',minmax(0,1fr))"><div></div>' +
     cols.map((c) => '<div class="qh"><i style="--c:' + esc(c.d.color) + '"></i>' + esc(c.d.name) + '</div>').join('') + body + '</div>' +
     '<p class="note">' + t('Нажмите на свободную клетку, чтобы записать клиента. Занятое время записать нельзя: это защищено в базе, в том числе для сайта и бота.') + '</p>';
