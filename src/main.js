@@ -24,7 +24,7 @@ import { vLogin, vNoAccess, vNav, vTabs, vView, vSheet, clientList, TABS, fullPr
 import { checkAlerts, unlockAudio } from './alerts.js';
 import { todayTz, isoAt, addDays, monthStart, maskHM, validHM } from './time.js';
 import { fmtPhoneInput, cleanPhone } from './phone.js';
-import { num, fmt } from './util.js';
+import { num, fmt, esc } from './util.js';
 window.__appReady = true;
 
 const $ = (id) => document.getElementById(id);
@@ -261,7 +261,7 @@ function showSuggestions() {
   const q = (S.form.name || '').trim().toLowerCase(), qd = digits(S.form.phone);
   if (S.form.clientId || (q.length < 2 && qd.length < 4)) { box.innerHTML = ''; return; }
   const list = S.clients.filter((c) => (q.length >= 2 && (c.name || '').toLowerCase().indexOf(q) >= 0) || (qd.length >= 4 && digits(c.phone).indexOf(qd) >= 0)).slice(0, 4);
-  box.innerHTML = list.map((c) => '<button type="button" class="sug-i" data-act="pick-client" data-id="' + c.id + '">' + c.name.replace(/</g, '&lt;') + ' · ' + (c.phone || '').replace(/</g, '&lt;') + '</button>').join('');
+  box.innerHTML = list.map((c) => '<button type="button" class="sug-i" data-act="pick-client" data-id="' + c.id + '">' + esc(c.name) + ' · ' + esc(c.phone || '') + '</button>').join('');
 }
 
 /* ---------- настройки (владелец) ---------- */
